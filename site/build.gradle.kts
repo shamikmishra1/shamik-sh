@@ -1,42 +1,29 @@
-// This is a placeholder for the site module (React/TypeScript)
-// The actual build is handled by npm/vite in the site/ directory
-// This file exists for IntelliJ to recognize the module structure
+// Site module (React/TypeScript frontend)
+// Actual build is handled by npm/vite - these tasks are convenience wrappers
 
 plugins {
     base
 }
 
-tasks.register("npmInstall") {
+tasks.register<Exec>("npmInstall") {
     group = "npm"
     description = "Install npm dependencies"
-    doLast {
-        exec {
-            workingDir = projectDir
-            commandLine("npm", "install")
-        }
-    }
+    workingDir = projectDir
+    commandLine("npm", "install")
 }
 
-tasks.register("npmBuild") {
+tasks.register<Exec>("npmBuild") {
     group = "npm"
     description = "Build the site for production"
     dependsOn("npmInstall")
-    doLast {
-        exec {
-            workingDir = projectDir
-            commandLine("npm", "run", "build")
-        }
-    }
+    workingDir = projectDir
+    commandLine("npm", "run", "build")
 }
 
-tasks.register("npmDev") {
+tasks.register<Exec>("npmDev") {
     group = "npm"
     description = "Start development server"
     dependsOn("npmInstall")
-    doLast {
-        exec {
-            workingDir = projectDir
-            commandLine("npm", "run", "dev")
-        }
-    }
+    workingDir = projectDir
+    commandLine("npm", "run", "dev")
 }

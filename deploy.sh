@@ -36,7 +36,8 @@ echo "Updating Lambda function..."
 aws lambda update-function-code \
     --function-name "$LAMBDA_FUNCTION" \
     --s3-bucket "$LAMBDA_BUCKET" \
-    --s3-key api-health/api-health-all.jar
+    --s3-key api-health/api-health-all.jar \
+    --no-cli-pager
 
 # Deploy site
 echo "Deploying site to S3..."
@@ -44,7 +45,7 @@ aws s3 sync site/dist/ "s3://$WEBSITE_BUCKET" --delete
 
 # Invalidate CloudFront
 echo "Invalidating CloudFront cache..."
-aws cloudfront create-invalidation --distribution-id "$DISTRIBUTION_ID" --paths "/*"
+aws cloudfront create-invalidation --distribution-id "$DISTRIBUTION_ID" --paths "/*" --no-cli-pager
 
 echo ""
 echo "=== Deployment complete! ==="

@@ -1,0 +1,412 @@
+terraform {
+  required_version = ">= 1.0"
+
+  required_providers {
+    aws = {
+      source  = "hashicorp/aws"
+      version = "~> 5.0"
+    }
+  }
+}
+
+provider "aws" {
+  region = var.aws_region
+}
+
+# ACM must be in us-east-1 for CloudFront
+provider "aws" {
+  alias  = "us_east_1"
+  region = "us-east-1"
+}
+
+locals {
+  s3_origin_id  = "S3-${var.domain_name}"
+  api_origin_id = "API-${var.domain_name}"
+}
+
+# =============================================================================
+# S3 BUCKET FOR STATIC WEBSITE
+# =============================================================================
+
+resource "aws_s3_bucket" "website" {
+  bucket = "${var.domain_name}-website"
+
+  tags = {
+    Name        = "${var.domain_name} Website"
+    Environment = "production"
+  }
+
+  lifecycle {
+    prevent_destroy = true
+  }
+}
+
+resource "aws_s3_bucket_public_access_block" "website" {
+  bucket = aws_s3_bucket.website.id
+
+  block_public_acls       = true
+  block_public_policy     = true
+  ignore_public_acls      = true
+  restrict_public_buckets = true
+}
+
+resource "aws_s3_bucket_versioning" "website" {
+  bucket = aws_s3_bucket.website.id
+
+  versioning_configuration {
+    status = "Enabled"
+  }
+}
+
+# =============================================================================
+# S3 BUCKET FOR LAMBDA CODE
+# =============================================================================
+
+resource "aws_s3_bucket" "lambda_code" {
+  bucket = "${var.domain_name}-lambda-code"
+
+  tags = {
+    Name        = "${var.domain_name} Lambda Code"
+    Environment = "production"
+  }
+
+  lifecycle {
+    prevent_destroy = true
+  }
+}
+
+resource "aws_s3_bucket_versioning" "lambda_code" {
+  bucket = aws_s3_bucket.lambda_code.id
+
+  versioning_configuration {
+    status = "Enabled"
+  }
+}
+
+# =============================================================================
+# ACM CERTIFICATE
+# =============================================================================
+
+resource "aws_acm_certificate" "website" {
+  provider          = aws.us_east_1
+  domain_name       = var.domain_name
+  validation_method = "DNS"
+
+  subject_alternative_names = [
+    "www.${var.domain_name}",
+    "api.${var.domain_name}"
+  ]
+
+  lifecycle {
+    create_before_destroy = true
+  }
+
+  tags = {
+    Name = var.domain_name
+  }
+}
+
+resource "aws_route53_record" "cert_validation" {
+  for_each = {
+    for dvo in aws_acm_certificate.website.domain_validation_options : dvo.domain_name => {
+      name   = dvo.resource_record_name
+      record = dvo.resource_record_value
+      type   = dvo.resource_record_type
+    }
+  }
+
+  allow_overwrite = true
+  name            = each.value.name
+  records         = [each.value.record]
+  ttl             = 60
+  type            = each.value.type
+  zone_id         = var.hosted_zone_id
+}
+
+resource "aws_acm_certificate_validation" "website" {
+  provider                = aws.us_east_1
+  certificate_arn         = aws_acm_certificate.website.arn
+  validation_record_fqdns = [for record in aws_route53_record.cert_validation : record.fqdn]
+}
+
+# =============================================================================
+# LAMBDA FUNCTION - API HEALTH
+# =============================================================================
+
+resource "aws_iam_role" "lambda_role" {
+  name = "${var.domain_name}-lambda-role"
+
+  assume_role_policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Action = "sts:AssumeRole"
+        Effect = "Allow"
+        Principal = {
+          Service = "lambda.amazonaws.com"
+        }
+        Condition = {
+          StringEquals = {
+            "aws:SourceAccount" = data.aws_caller_identity.current.account_id
+          }
+        }
+      }
+    ]
+  })
+}
+
+data "aws_caller_identity" "current" {}
+
+resource "aws_iam_role_policy_attachment" "lambda_basic" {
+  role       = aws_iam_role.lambda_role.name
+  policy_arn = "arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
+}
+
+resource "aws_lambda_function" "api_health" {
+  function_name = "${replace(var.domain_name, ".", "-")}-api-health"
+  role          = aws_iam_role.lambda_role.arn
+  handler       = "com.shamikmishra.lambda.HealthHandler::handleRequest"
+  runtime       = "java21"
+  timeout       = 30
+  memory_size   = 512
+
+  s3_bucket = aws_s3_bucket.lambda_code.id
+  s3_key    = "api-health/api-health-all.jar"
+
+  environment {
+    variables = {
+      ENVIRONMENT = "production"
+    }
+  }
+
+  tags = {
+    Name = "${var.domain_name} API Health"
+  }
+
+  depends_on = [aws_s3_bucket.lambda_code]
+}
+
+# =============================================================================
+# API GATEWAY
+# =============================================================================
+
+resource "aws_apigatewayv2_api" "api" {
+  name          = "${var.domain_name}-api"
+  protocol_type = "HTTP"
+
+  cors_configuration {
+    allow_origins = ["https://${var.domain_name}", "https://www.${var.domain_name}"]
+    allow_methods = ["GET", "POST", "OPTIONS"]
+    allow_headers = ["Content-Type", "Authorization"]
+    max_age       = 300
+  }
+}
+
+resource "aws_apigatewayv2_stage" "api" {
+  api_id      = aws_apigatewayv2_api.api.id
+  name        = "$default"
+  auto_deploy = true
+}
+
+resource "aws_apigatewayv2_integration" "health" {
+  api_id                 = aws_apigatewayv2_api.api.id
+  integration_type       = "AWS_PROXY"
+  integration_uri        = aws_lambda_function.api_health.invoke_arn
+  payload_format_version = "2.0"
+}
+
+resource "aws_apigatewayv2_route" "health" {
+  api_id    = aws_apigatewayv2_api.api.id
+  route_key = "GET /health"
+  target    = "integrations/${aws_apigatewayv2_integration.health.id}"
+}
+
+resource "aws_lambda_permission" "api_gateway" {
+  statement_id  = "AllowAPIGatewayInvoke"
+  action        = "lambda:InvokeFunction"
+  function_name = aws_lambda_function.api_health.function_name
+  principal     = "apigateway.amazonaws.com"
+  source_arn    = "${aws_apigatewayv2_api.api.execution_arn}/*/*"
+}
+
+# Custom domain for API
+resource "aws_apigatewayv2_domain_name" "api" {
+  domain_name = "api.${var.domain_name}"
+
+  domain_name_configuration {
+    certificate_arn = aws_acm_certificate.website.arn
+    endpoint_type   = "REGIONAL"
+    security_policy = "TLS_1_2"
+  }
+
+  depends_on = [aws_acm_certificate_validation.website]
+}
+
+resource "aws_apigatewayv2_api_mapping" "api" {
+  api_id      = aws_apigatewayv2_api.api.id
+  domain_name = aws_apigatewayv2_domain_name.api.id
+  stage       = aws_apigatewayv2_stage.api.id
+}
+
+# =============================================================================
+# CLOUDFRONT DISTRIBUTION
+# =============================================================================
+
+resource "aws_cloudfront_origin_access_control" "website" {
+  name                              = "${var.domain_name}-oac"
+  description                       = "OAC for ${var.domain_name}"
+  origin_access_control_origin_type = "s3"
+  signing_behavior                  = "always"
+  signing_protocol                  = "sigv4"
+}
+
+resource "aws_cloudfront_distribution" "website" {
+  enabled             = true
+  is_ipv6_enabled     = true
+  default_root_object = "index.html"
+  aliases             = [var.domain_name, "www.${var.domain_name}"]
+  price_class         = "PriceClass_100"
+
+  origin {
+    domain_name              = aws_s3_bucket.website.bucket_regional_domain_name
+    origin_id                = local.s3_origin_id
+    origin_access_control_id = aws_cloudfront_origin_access_control.website.id
+  }
+
+  default_cache_behavior {
+    allowed_methods        = ["GET", "HEAD", "OPTIONS"]
+    cached_methods         = ["GET", "HEAD"]
+    target_origin_id       = local.s3_origin_id
+    viewer_protocol_policy = "redirect-to-https"
+    compress               = true
+
+    forwarded_values {
+      query_string = false
+      cookies {
+        forward = "none"
+      }
+    }
+
+    min_ttl     = 0
+    default_ttl = 3600
+    max_ttl     = 86400
+  }
+
+  custom_error_response {
+    error_code         = 404
+    response_code      = 200
+    response_page_path = "/index.html"
+  }
+
+  custom_error_response {
+    error_code         = 403
+    response_code      = 200
+    response_page_path = "/index.html"
+  }
+
+  restrictions {
+    geo_restriction {
+      restriction_type = "none"
+    }
+  }
+
+  viewer_certificate {
+    acm_certificate_arn      = aws_acm_certificate.website.arn
+    ssl_support_method       = "sni-only"
+    minimum_protocol_version = "TLSv1.2_2021"
+  }
+
+  depends_on = [aws_acm_certificate_validation.website]
+
+  tags = {
+    Name = var.domain_name
+  }
+}
+
+resource "aws_s3_bucket_policy" "website" {
+  bucket = aws_s3_bucket.website.id
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Sid    = "AllowCloudFrontServicePrincipal"
+        Effect = "Allow"
+        Principal = {
+          Service = "cloudfront.amazonaws.com"
+        }
+        Action   = "s3:GetObject"
+        Resource = "${aws_s3_bucket.website.arn}/*"
+        Condition = {
+          StringEquals = {
+            "AWS:SourceArn" = aws_cloudfront_distribution.website.arn
+          }
+        }
+      }
+    ]
+  })
+}
+
+# =============================================================================
+# ROUTE 53 RECORDS
+# =============================================================================
+
+resource "aws_route53_record" "website_a" {
+  zone_id = var.hosted_zone_id
+  name    = var.domain_name
+  type    = "A"
+
+  alias {
+    name                   = aws_cloudfront_distribution.website.domain_name
+    zone_id                = aws_cloudfront_distribution.website.hosted_zone_id
+    evaluate_target_health = false
+  }
+}
+
+resource "aws_route53_record" "website_aaaa" {
+  zone_id = var.hosted_zone_id
+  name    = var.domain_name
+  type    = "AAAA"
+
+  alias {
+    name                   = aws_cloudfront_distribution.website.domain_name
+    zone_id                = aws_cloudfront_distribution.website.hosted_zone_id
+    evaluate_target_health = false
+  }
+}
+
+resource "aws_route53_record" "www_a" {
+  zone_id = var.hosted_zone_id
+  name    = "www.${var.domain_name}"
+  type    = "A"
+
+  alias {
+    name                   = aws_cloudfront_distribution.website.domain_name
+    zone_id                = aws_cloudfront_distribution.website.hosted_zone_id
+    evaluate_target_health = false
+  }
+}
+
+resource "aws_route53_record" "www_aaaa" {
+  zone_id = var.hosted_zone_id
+  name    = "www.${var.domain_name}"
+  type    = "AAAA"
+
+  alias {
+    name                   = aws_cloudfront_distribution.website.domain_name
+    zone_id                = aws_cloudfront_distribution.website.hosted_zone_id
+    evaluate_target_health = false
+  }
+}
+
+resource "aws_route53_record" "api_a" {
+  zone_id = var.hosted_zone_id
+  name    = "api.${var.domain_name}"
+  type    = "A"
+
+  alias {
+    name                   = aws_apigatewayv2_domain_name.api.domain_name_configuration[0].target_domain_name
+    zone_id                = aws_apigatewayv2_domain_name.api.domain_name_configuration[0].hosted_zone_id
+    evaluate_target_health = false
+  }
+}

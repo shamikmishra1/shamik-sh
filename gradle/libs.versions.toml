@@ -4,17 +4,25 @@ kotlinx-serialization = "1.7.3"
 shadow = "8.1.1"
 aws-lambda-java-core = "1.2.3"
 aws-lambda-java-events = "3.14.0"
+aws-sdk = "2.25.0"
 kotlin-logging = "7.0.3"
 logback = "1.5.12"
 junit-jupiter = "5.11.3"
+ktor-client = "2.3.9"
 
 [libraries]
 aws-lambda-java-core = { module = "com.amazonaws:aws-lambda-java-core", version.ref = "aws-lambda-java-core" }
 aws-lambda-java-events = { module = "com.amazonaws:aws-lambda-java-events", version.ref = "aws-lambda-java-events" }
+aws-sdk-secretsmanager = { module = "software.amazon.awssdk:secretsmanager", version.ref = "aws-sdk" }
+aws-sdk-url-connection-client = { module = "software.amazon.awssdk:url-connection-client", version.ref = "aws-sdk" }
 kotlin-logging = { module = "io.github.oshai:kotlin-logging-jvm", version.ref = "kotlin-logging" }
 kotlinx-serialization-json = { module = "org.jetbrains.kotlinx:kotlinx-serialization-json", version.ref = "kotlinx-serialization" }
 logback-classic = { module = "ch.qos.logback:logback-classic", version.ref = "logback" }
 junit-jupiter = { module = "org.junit.jupiter:junit-jupiter", version.ref = "junit-jupiter" }
+ktor-client-core = { module = "io.ktor:ktor-client-core", version.ref = "ktor-client" }
+ktor-client-java = { module = "io.ktor:ktor-client-java", version.ref = "ktor-client" }
+ktor-client-content-negotiation = { module = "io.ktor:ktor-client-content-negotiation", version.ref = "ktor-client" }
+ktor-serialization-json = { module = "io.ktor:ktor-serialization-kotlinx-json", version.ref = "ktor-client" }
 
 [plugins]
 kotlin = { id = "org.jetbrains.kotlin.jvm", version.ref = "kotlin" }

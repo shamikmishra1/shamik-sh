@@ -13,11 +13,6 @@ output "cloudfront_distribution_id" {
   value       = aws_cloudfront_distribution.website.id
 }
 
-output "cloudfront_distribution_domain" {
-  description = "Domain name of the CloudFront distribution"
-  value       = aws_cloudfront_distribution.website.domain_name
-}
-
 output "website_url" {
   description = "URL of the website"
   value       = "https://${var.domain_name}"
@@ -28,17 +23,12 @@ output "api_url" {
   value       = "https://api.${var.domain_name}"
 }
 
-output "api_health_endpoint" {
-  description = "Health check endpoint"
-  value       = "https://api.${var.domain_name}/health"
-}
-
-output "certificate_arn" {
-  description = "ARN of the ACM certificate"
-  value       = aws_acm_certificate.website.arn
-}
-
 output "lambda_function_name" {
   description = "Name of the Lambda function"
-  value       = aws_lambda_function.api_health.function_name
+  value       = aws_lambda_function.api.function_name
+}
+
+output "secrets_arn" {
+  description = "ARN of the secrets"
+  value       = data.aws_secretsmanager_secret.api_secrets.arn
 }

@@ -18,7 +18,6 @@ const TerminalContainer = styled.div`
 
 const TerminalWindow = styled.div`
   background: ${({ theme }) => theme.colors.terminal};
-  border: 1px solid ${({ theme }) => theme.colors.border};
   border-radius: 8px;
   overflow: hidden;
   flex: 1;
@@ -26,32 +25,9 @@ const TerminalWindow = styled.div`
   flex-direction: column;
 `;
 
-const TerminalHeader = styled.div`
-  background: ${({ theme }) => theme.colors.background};
-  padding: 12px 16px;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  border-bottom: 1px solid ${({ theme }) => theme.colors.border};
-`;
-
-const WindowButton = styled.div<{ $color: string }>`
-  width: 12px;
-  height: 12px;
-  border-radius: 50%;
-  background: ${({ $color }) => $color};
-`;
-
-const TerminalTitle = styled.span`
-  flex: 1;
-  text-align: center;
-  color: ${({ theme }) => theme.colors.textMuted};
-  font-size: 12px;
-`;
-
 const TerminalBody = styled.div`
   flex: 1;
-  padding: 16px;
+  padding: 24px;
   overflow-y: auto;
   min-height: 500px;
 `;
@@ -68,7 +44,7 @@ const CommandLine = styled.div`
 `;
 
 const Prompt = styled.span`
-  color: ${({ theme }) => theme.colors.secondary};
+  color: ${({ theme }) => theme.colors.primary};
   margin-right: 8px;
 `;
 
@@ -164,18 +140,12 @@ export function Terminal({ output, onCommand, onNavigateHistory }: TerminalProps
   return (
     <TerminalContainer>
       <TerminalWindow onClick={handleContainerClick}>
-        <TerminalHeader>
-          <WindowButton $color="#ff5f56" />
-          <WindowButton $color="#ffbd2e" />
-          <WindowButton $color="#27ca40" />
-          <TerminalTitle>shamik@portfolio ~ </TerminalTitle>
-        </TerminalHeader>
         <TerminalBody ref={bodyRef}>
           {output.map((item, index) => (
             <OutputLine key={index}>
               {item.command && (
                 <CommandLine>
-                  <Prompt>visitor@shamikmishra.com:~$</Prompt>
+                  <Prompt>❯</Prompt>
                   <Command>{item.command}</Command>
                 </CommandLine>
               )}
@@ -183,7 +153,7 @@ export function Terminal({ output, onCommand, onNavigateHistory }: TerminalProps
             </OutputLine>
           ))}
           <InputLine>
-            <Prompt>visitor@shamikmishra.com:~$</Prompt>
+            <Prompt>❯</Prompt>
             <form onSubmit={handleSubmit} style={{ flex: 1 }}>
               <Input
                 ref={inputRef}
@@ -191,7 +161,7 @@ export function Terminal({ output, onCommand, onNavigateHistory }: TerminalProps
                 value={input}
                 onChange={(e) => setInput(e.target.value)}
                 onKeyDown={handleKeyDown}
-                placeholder="Type a command..."
+                placeholder=""
                 autoComplete="off"
                 autoCapitalize="off"
                 spellCheck={false}
@@ -204,7 +174,7 @@ export function Terminal({ output, onCommand, onNavigateHistory }: TerminalProps
   );
 }
 
-const COMMANDS = ['help', 'about', 'skills', 'projects', 'experience', 'contact', 'clear', 'whoami', 'ls', 'cat', 'sudo', 'exit', 'terraform', 'kubectl', 'ssh', 'man'];
+const COMMANDS = ['help', 'about', 'projects', 'socials', 'blog', 'themes', 'clear', 'welcome', 'echo', 'pwd', 'music'];
 
 function autocomplete(input: string): string | null {
   if (!input) return null;

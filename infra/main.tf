@@ -84,7 +84,7 @@ resource "aws_s3_bucket_versioning" "lambda_code" {
 }
 
 # =============================================================================
-# ACM CERTIFICATE
+# ACM CERTIFICATE (us-east-1 for CloudFront)
 # =============================================================================
 
 resource "aws_acm_certificate" "website" {
@@ -93,8 +93,7 @@ resource "aws_acm_certificate" "website" {
   validation_method = "DNS"
 
   subject_alternative_names = [
-    "www.${var.domain_name}",
-    "api.${var.domain_name}"
+    "www.${var.domain_name}"
   ]
 
   lifecycle {
@@ -102,7 +101,7 @@ resource "aws_acm_certificate" "website" {
   }
 
   tags = {
-    Name = var.domain_name
+    Name = "${var.domain_name}-cloudfront"
   }
 }
 
@@ -130,6 +129,45 @@ resource "aws_acm_certificate_validation" "website" {
 }
 
 # =============================================================================
+# ACM CERTIFICATE (eu-north-1 for API Gateway)
+# =============================================================================
+
+resource "aws_acm_certificate" "api" {
+  domain_name       = "api.${var.domain_name}"
+  validation_method = "DNS"
+
+  lifecycle {
+    create_before_destroy = true
+  }
+
+  tags = {
+    Name = "${var.domain_name}-api"
+  }
+}
+
+resource "aws_route53_record" "api_cert_validation" {
+  for_each = {
+    for dvo in aws_acm_certificate.api.domain_validation_options : dvo.domain_name => {
+      name   = dvo.resource_record_name
+      record = dvo.resource_record_value
+      type   = dvo.resource_record_type
+    }
+  }
+
+  allow_overwrite = true
+  name            = each.value.name
+  records         = [each.value.record]
+  ttl             = 60
+  type            = each.value.type
+  zone_id         = var.hosted_zone_id
+}
+
+resource "aws_acm_certificate_validation" "api" {
+  certificate_arn         = aws_acm_certificate.api.arn
+  validation_record_fqdns = [for record in aws_route53_record.api_cert_validation : record.fqdn]
+}
+
+# =============================================================================
 # LAMBDA FUNCTION - API HEALTH
 # =============================================================================
 
@@ -145,11 +183,6 @@ resource "aws_iam_role" "lambda_role" {
         Principal = {
           Service = "lambda.amazonaws.com"
         }
-        Condition = {
-          StringEquals = {
-            "aws:SourceAccount" = data.aws_caller_identity.current.account_id
-          }
-        }
       }
     ]
   })
@@ -162,6 +195,17 @@ resource "aws_iam_role_policy_attachment" "lambda_basic" {
   policy_arn = "arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
 }
 
+# Placeholder zip for initial Lambda creation
+data "archive_file" "lambda_placeholder" {
+  type        = "zip"
+  output_path = "${path.module}/placeholder.zip"
+
+  source {
+    content  = "placeholder"
+    filename = "placeholder.txt"
+  }
+}
+
 resource "aws_lambda_function" "api_health" {
   function_name = "${replace(var.domain_name, ".", "-")}-api-health"
   role          = aws_iam_role.lambda_role.arn
@@ -170,8 +214,8 @@ resource "aws_lambda_function" "api_health" {
   timeout       = 30
   memory_size   = 512
 
-  s3_bucket = aws_s3_bucket.lambda_code.id
-  s3_key    = "api-health/api-health-all.jar"
+  # Start with placeholder, deploy.sh will update with real JAR
+  filename = data.archive_file.lambda_placeholder.output_path
 
   environment {
     variables = {
@@ -183,7 +227,9 @@ resource "aws_lambda_function" "api_health" {
     Name = "${var.domain_name} API Health"
   }
 
-  depends_on = [aws_s3_bucket.lambda_code]
+  lifecycle {
+    ignore_changes = [filename, s3_bucket, s3_key, source_code_hash]
+  }
 }
 
 # =============================================================================
@@ -229,17 +275,17 @@ resource "aws_lambda_permission" "api_gateway" {
   source_arn    = "${aws_apigatewayv2_api.api.execution_arn}/*/*"
 }
 
-# Custom domain for API
+# Custom domain for API (uses regional certificate)
 resource "aws_apigatewayv2_domain_name" "api" {
   domain_name = "api.${var.domain_name}"
 
   domain_name_configuration {
-    certificate_arn = aws_acm_certificate.website.arn
+    certificate_arn = aws_acm_certificate.api.arn
     endpoint_type   = "REGIONAL"
     security_policy = "TLS_1_2"
   }
 
-  depends_on = [aws_acm_certificate_validation.website]
+  depends_on = [aws_acm_certificate_validation.api]
 }
 
 resource "aws_apigatewayv2_api_mapping" "api" {

@@ -16,6 +16,7 @@ out/
 *.tfstate.*
 *.tfplan
 .terraform.lock.hcl
+infra/placeholder.zip
 
 # Environment
 .env
@@ -53,3 +54,6 @@ coverage/
 *.tgz
 *.jar
 !gradle/wrapper/*.jar
+
+# Personal docs (not committed)
+docs/personal/

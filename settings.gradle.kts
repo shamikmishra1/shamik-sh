@@ -19,7 +19,7 @@ dependencyResolutionManagement {
 
 // AWS Lambda modules
 "aws-lambda".apply {
-    includeSubModule("api-health")
+    includeSubModule("api")
 }
 
 // Site module (React/TypeScript frontend)

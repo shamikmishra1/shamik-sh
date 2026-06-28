@@ -1,0 +1,68 @@
+const API_URL = 'https://api.shamikmishra.com';
+
+interface NowPlayingResponse {
+  playing: boolean;
+  track?: string;
+  artist?: string;
+  album?: string;
+}
+
+export async function fetchNowPlaying(): Promise<string> {
+  try {
+    const response = await fetch(`${API_URL}/music`);
+    if (!response.ok) {
+      return `Error: ${response.status} ${response.statusText}`;
+    }
+    const data: NowPlayingResponse = await response.json();
+
+    if (!data.track) {
+      return 'Nothing playing right now.';
+    }
+
+    const status = data.playing ? '♪ Now playing' : '♪ Last played';
+    return `${status}:
+  ${data.track}
+  by ${data.artist}${data.album ? `\n  from ${data.album}` : ''}`;
+  } catch (e) {
+    console.error('Music fetch error:', e);
+    return 'Could not fetch music data.';
+  }
+}
+
+interface Book {
+  title: string;
+  author: string;
+  status: string;
+}
+
+interface ReadingResponse {
+  currentlyReading: Book[];
+  finished: Book[];
+}
+
+export async function fetchReading(): Promise<string> {
+  try {
+    const response = await fetch(`${API_URL}/reading`);
+    const data: ReadingResponse = await response.json();
+
+    let result = '';
+
+    if (data.currentlyReading.length > 0) {
+      result += 'Currently reading:\n';
+      data.currentlyReading.forEach(book => {
+        result += `  📖 ${book.title}\n     by ${book.author}\n`;
+      });
+    }
+
+    if (data.finished.length > 0) {
+      result += '\nRecently finished:\n';
+      data.finished.forEach(book => {
+        result += `  ✓ ${book.title}\n     by ${book.author}\n`;
+      });
+    }
+
+    return result || 'No reading data available.';
+  } catch {
+    return 'Could not fetch reading data.';
+  }
+}

@@ -2,7 +2,8 @@ import { useState, useCallback } from 'react';
 import styled from 'styled-components';
 import { Terminal } from './components/Terminal';
 import { useCommandHistory } from './hooks/useCommandHistory';
-import { executeCommand } from './commands';
+import { executeCommand, setThemeCallback } from './commands';
+import { useTheme } from './styles/ThemeProvider';
 
 const AppContainer = styled.div`
   min-height: 100vh;
@@ -11,13 +12,47 @@ const AppContainer = styled.div`
   flex-direction: column;
 `;
 
+const getWelcomeMessage = () => {
+  const isMobile = window.innerWidth < 600;
+
+  if (isMobile) {
+    return `
+┌─────────────────────┐
+│   Shamik Mishra     │
+└─────────────────────┘
+
+Building things.
+Breaking things.
+Fixing things.
+
+Type 'help' to explore.
+`;
+  }
+
+  return `
+ ____  _                 _ _      __  __ _     _
+/ ___|| |__   __ _ _ __ (_) | __ |  \\/  (_)___| |__  _ __ __ _
+\\___ \\| '_ \\ / _' | '_ \\| | |/ / | |\\/| | / __| '_ \\| '__/ _' |
+ ___) | | | | (_| | | | | |   <  | |  | | \\__ \\ | | | | | (_| |
+|____/|_| |_|\\__,_|_| |_|_|_|\\_\\ |_|  |_|_|___/_| |_|_|  \\__,_|
+
+Building things. Breaking things. Fixing things.
+
+You found my corner of the internet.
+Type 'help' to explore.
+`;
+};
+
 function App() {
   const [output, setOutput] = useState<Array<{ command: string; result: string }>>([
     { command: '', result: getWelcomeMessage() }
   ]);
   const { history, addToHistory, navigateHistory, resetNavigation } = useCommandHistory();
+  const { setTheme, availableThemes, themeName } = useTheme();
 
-  const handleCommand = useCallback((command: string) => {
+  setThemeCallback(setTheme, availableThemes, themeName);
+
+  const handleCommand = useCallback(async (command: string) => {
     const trimmedCommand = command.trim().toLowerCase();
 
     if (trimmedCommand === 'clear') {
@@ -25,7 +60,12 @@ function App() {
       return;
     }
 
-    const result = executeCommand(trimmedCommand);
+    if (trimmedCommand === 'welcome') {
+      setOutput([{ command: '', result: getWelcomeMessage() }]);
+      return;
+    }
+
+    const result = await executeCommand(trimmedCommand);
     setOutput(prev => [...prev, { command, result }]);
 
     if (trimmedCommand) {
@@ -44,25 +84,6 @@ function App() {
       />
     </AppContainer>
   );
-}
-
-function getWelcomeMessage(): string {
-  return `
-┌─────────────────────────────────────────────────────────────┐
-│                                                             │
-│   ███████╗██╗  ██╗ █████╗ ███╗   ███╗██╗██╗  ██╗           │
-│   ██╔════╝██║  ██║██╔══██╗████╗ ████║██║██║ ██╔╝           │
-│   ███████╗███████║███████║██╔████╔██║██║█████╔╝            │
-│   ╚════██║██╔══██║██╔══██║██║╚██╔╝██║██║██╔═██╗            │
-│   ███████║██║  ██║██║  ██║██║ ╚═╝ ██║██║██║  ██╗           │
-│   ╚══════╝╚═╝  ╚═╝╚═╝  ╚═╝╚═╝     ╚═╝╚═╝╚═╝  ╚═╝           │
-│                                                             │
-│   Backend Engineer | Kotlin | Terraform | AWS               │
-│                                                             │
-│   Type 'help' to see available commands                     │
-│                                                             │
-└─────────────────────────────────────────────────────────────┘
-`;
 }
 
 export default App;

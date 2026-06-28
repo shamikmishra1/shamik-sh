@@ -17,11 +17,14 @@ out/
 *.tfplan
 .terraform.lock.hcl
 infra/placeholder.zip
+infra/terraform.tfvars
 
 # Environment
 .env
 .env.local
 .env.*.local
+site/.env
+site/.env.local
 
 # IDE (keep .idea for IntelliJ project sharing, exclude user-specific)
 .idea/*.iml

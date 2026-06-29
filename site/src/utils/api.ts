@@ -1,5 +1,21 @@
 const API_URL = 'https://api.shamikmishra.com';
 
+export function trackPageView(page: string) {
+  fetch(`${API_URL}/track`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ page }),
+  }).catch(() => {});
+}
+
+export function trackCommand(command: string) {
+  fetch(`${API_URL}/track`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ page: 'terminal', command }),
+  }).catch(() => {});
+}
+
 interface NowPlayingResponse {
   playing: boolean;
   track?: string;

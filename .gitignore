@@ -44,6 +44,9 @@ site/.env.local
 
 # OS
 .DS_Store
+
+# Personal assets (stored in S3 only)
+site/public/shamik.jpg
 Thumbs.db
 
 # Logs

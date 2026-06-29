@@ -7,18 +7,8 @@ interface DailyStats {
   views: number
 }
 
-interface CommandStats {
-  command: string
-  count: number
-}
-
-interface CountryStats {
-  country: string
-  count: number
-}
-
-interface DeviceStats {
-  device: string
+interface ItemCount {
+  name: string
   count: number
 }
 
@@ -26,15 +16,27 @@ interface Stats {
   totalViews: number
   todayViews: number
   dailyStats: DailyStats[]
-  topCommands: CommandStats[]
-  topCountries: CountryStats[]
-  devices: DeviceStats[]
+  topCommands: ItemCount[]
+  countries: ItemCount[]
+  devices: ItemCount[]
+  browsers: ItemCount[]
+  os: ItemCount[]
+  referrers: ItemCount[]
 }
 
 const COUNTRY_FLAGS: Record<string, string> = {
   'NO': '🇳🇴', 'US': '🇺🇸', 'GB': '🇬🇧', 'DE': '🇩🇪', 'IN': '🇮🇳',
   'FR': '🇫🇷', 'SE': '🇸🇪', 'DK': '🇩🇰', 'NL': '🇳🇱', 'CA': '🇨🇦',
   'AU': '🇦🇺', 'JP': '🇯🇵', 'CN': '🇨🇳', 'BR': '🇧🇷', 'ES': '🇪🇸',
+  'IT': '🇮🇹', 'PL': '🇵🇱', 'RU': '🇷🇺', 'KR': '🇰🇷', 'MX': '🇲🇽',
+}
+
+const BROWSER_ICONS: Record<string, string> = {
+  'Chrome': '🌐', 'Safari': '🧭', 'Firefox': '🦊', 'Edge': '🔷', 'Opera': '🔴', 'Other': '❓'
+}
+
+const OS_ICONS: Record<string, string> = {
+  'Windows': '🪟', 'macOS': '🍎', 'iOS': '📱', 'Android': '🤖', 'Linux': '🐧', 'Other': '❓'
 }
 
 function LoginForm({ onLogin, error }: { onLogin: (password: string) => void; error: string | null }) {
@@ -72,6 +74,34 @@ function LoginForm({ onLogin, error }: { onLogin: (password: string) => void; er
   )
 }
 
+function StatCard({ value, label }: { value: number; label: string }) {
+  return (
+    <div style={styles.statCard}>
+      <div style={styles.statValue}>{value.toLocaleString()}</div>
+      <div style={styles.statLabel}>{label}</div>
+    </div>
+  )
+}
+
+function ItemList({ title, items, iconMap }: { title: string; items: ItemCount[]; iconMap?: Record<string, string> }) {
+  return (
+    <div style={styles.section}>
+      <h2 style={styles.sectionTitle}>{title}</h2>
+      <div style={styles.list}>
+        {items.map((item) => (
+          <div key={item.name} style={styles.listRow}>
+            <span>
+              {iconMap?.[item.name] ?? ''} {item.name}
+            </span>
+            <span style={styles.count}>{item.count}</span>
+          </div>
+        ))}
+        {items.length === 0 && <div style={styles.empty}>No data yet</div>}
+      </div>
+    </div>
+  )
+}
+
 function Dashboard({ stats, onLogout }: { stats: Stats; onLogout: () => void }) {
   const maxViews = Math.max(...stats.dailyStats.map(d => d.views), 1)
 
@@ -83,14 +113,8 @@ function Dashboard({ stats, onLogout }: { stats: Stats; onLogout: () => void }) 
       </div>
 
       <div style={styles.statsGrid}>
-        <div style={styles.statCard}>
-          <div style={styles.statValue}>{stats.totalViews}</div>
-          <div style={styles.statLabel}>Total Views</div>
-        </div>
-        <div style={styles.statCard}>
-          <div style={styles.statValue}>{stats.todayViews}</div>
-          <div style={styles.statLabel}>Today</div>
-        </div>
+        <StatCard value={stats.totalViews} label="Total Views" />
+        <StatCard value={stats.todayViews} label="Today" />
       </div>
 
       <div style={styles.section}>
@@ -99,66 +123,23 @@ function Dashboard({ stats, onLogout }: { stats: Stats; onLogout: () => void }) 
           {stats.dailyStats.map((day) => (
             <div key={day.date} style={styles.chartBar}>
               <div style={styles.barValue}>{day.views}</div>
-              <div
-                style={{
-                  ...styles.bar,
-                  height: `${Math.max((day.views / maxViews) * 100, 4)}%`,
-                }}
-              />
+              <div style={{ ...styles.bar, height: `${Math.max((day.views / maxViews) * 100, 4)}%` }} />
               <div style={styles.barLabel}>{day.date.slice(5)}</div>
             </div>
           ))}
         </div>
       </div>
 
-      <div style={styles.gridTwo}>
-        <div style={styles.section}>
-          <h2 style={styles.sectionTitle}>Top Commands</h2>
-          <div style={styles.list}>
-            {stats.topCommands.map((cmd) => (
-              <div key={cmd.command} style={styles.listRow}>
-                <code style={styles.code}>{cmd.command}</code>
-                <span style={styles.count}>{cmd.count}</span>
-              </div>
-            ))}
-            {stats.topCommands.length === 0 && (
-              <div style={styles.empty}>No data yet</div>
-            )}
-          </div>
-        </div>
-
-        <div style={styles.section}>
-          <h2 style={styles.sectionTitle}>Countries</h2>
-          <div style={styles.list}>
-            {stats.topCountries.map((c) => (
-              <div key={c.country} style={styles.listRow}>
-                <span>{COUNTRY_FLAGS[c.country] || '🌍'} {c.country}</span>
-                <span style={styles.count}>{c.count}</span>
-              </div>
-            ))}
-            {stats.topCountries.length === 0 && (
-              <div style={styles.empty}>No data yet</div>
-            )}
-          </div>
-        </div>
+      <div style={styles.gridThree}>
+        <ItemList title="Commands" items={stats.topCommands} />
+        <ItemList title="Countries" items={stats.countries.map(c => ({ ...c, name: `${COUNTRY_FLAGS[c.name] || '🌍'} ${c.name}` }))} />
+        <ItemList title="Referrers" items={stats.referrers} />
       </div>
 
-      <div style={styles.section}>
-        <h2 style={styles.sectionTitle}>Devices</h2>
-        <div style={styles.deviceGrid}>
-          {stats.devices.map((d) => (
-            <div key={d.device} style={styles.deviceCard}>
-              <div style={styles.deviceIcon}>
-                {d.device === 'mobile' ? '📱' : d.device === 'tablet' ? '📱' : '💻'}
-              </div>
-              <div style={styles.deviceName}>{d.device}</div>
-              <div style={styles.deviceCount}>{d.count}</div>
-            </div>
-          ))}
-          {stats.devices.length === 0 && (
-            <div style={styles.empty}>No data yet</div>
-          )}
-        </div>
+      <div style={styles.gridThree}>
+        <ItemList title="Devices" items={stats.devices} iconMap={{ mobile: '📱', tablet: '📱', desktop: '💻' }} />
+        <ItemList title="Browsers" items={stats.browsers} iconMap={BROWSER_ICONS} />
+        <ItemList title="OS" items={stats.os} iconMap={OS_ICONS} />
       </div>
     </div>
   )
@@ -224,17 +205,9 @@ function App() {
     }
   }, [authenticated])
 
-  if (loading) {
-    return <div style={styles.loading}>Loading...</div>
-  }
-
-  if (!authenticated) {
-    return <LoginForm onLogin={handleLogin} error={error} />
-  }
-
-  if (!stats) {
-    return <div style={styles.loading}>Loading stats...</div>
-  }
+  if (loading) return <div style={styles.loading}>Loading...</div>
+  if (!authenticated) return <LoginForm onLogin={handleLogin} error={error} />
+  if (!stats) return <div style={styles.loading}>Loading stats...</div>
 
   return <Dashboard stats={stats} onLogout={handleLogout} />
 }
@@ -290,7 +263,7 @@ const styles: Record<string, React.CSSProperties> = {
     background: '#0a0a0a',
     color: '#fff',
     padding: '32px',
-    maxWidth: '900px',
+    maxWidth: '1200px',
     margin: '0 auto',
   },
   header: {
@@ -334,12 +307,12 @@ const styles: Record<string, React.CSSProperties> = {
     fontSize: '14px',
   },
   section: {
-    marginBottom: '32px',
+    marginBottom: '24px',
   },
   sectionTitle: {
-    fontSize: '14px',
-    marginBottom: '16px',
-    color: '#888',
+    fontSize: '12px',
+    marginBottom: '12px',
+    color: '#666',
     textTransform: 'uppercase',
     letterSpacing: '1px',
   },
@@ -347,9 +320,9 @@ const styles: Record<string, React.CSSProperties> = {
     display: 'flex',
     alignItems: 'flex-end',
     gap: '8px',
-    height: '160px',
+    height: '140px',
     background: '#1a1a1a',
-    padding: '20px',
+    padding: '16px',
     borderRadius: '12px',
   },
   chartBar: {
@@ -366,68 +339,44 @@ const styles: Record<string, React.CSSProperties> = {
     marginTop: 'auto',
   },
   barLabel: {
-    fontSize: '11px',
+    fontSize: '10px',
     color: '#666',
-    marginTop: '8px',
+    marginTop: '6px',
   },
   barValue: {
-    fontSize: '12px',
+    fontSize: '11px',
     color: '#fff',
     marginBottom: '4px',
   },
-  gridTwo: {
+  gridThree: {
     display: 'grid',
-    gridTemplateColumns: 'repeat(2, 1fr)',
-    gap: '24px',
+    gridTemplateColumns: 'repeat(3, 1fr)',
+    gap: '16px',
+    marginBottom: '24px',
   },
   list: {
     background: '#1a1a1a',
     borderRadius: '12px',
     overflow: 'hidden',
+    maxHeight: '240px',
+    overflowY: 'auto',
   },
   listRow: {
     display: 'flex',
     justifyContent: 'space-between',
-    padding: '14px 16px',
+    padding: '10px 14px',
     borderBottom: '1px solid #252525',
-  },
-  code: {
-    color: '#3b82f6',
-    fontFamily: 'monospace',
+    fontSize: '13px',
   },
   count: {
-    color: '#888',
+    color: '#666',
+    fontFamily: 'monospace',
   },
   empty: {
-    padding: '24px',
-    textAlign: 'center',
-    color: '#666',
-  },
-  deviceGrid: {
-    display: 'grid',
-    gridTemplateColumns: 'repeat(3, 1fr)',
-    gap: '16px',
-  },
-  deviceCard: {
-    background: '#1a1a1a',
     padding: '20px',
-    borderRadius: '12px',
     textAlign: 'center',
-  },
-  deviceIcon: {
-    fontSize: '28px',
-    marginBottom: '8px',
-  },
-  deviceName: {
-    color: '#888',
-    fontSize: '14px',
-    textTransform: 'capitalize',
-  },
-  deviceCount: {
-    color: '#3b82f6',
-    fontSize: '20px',
-    fontWeight: 'bold',
-    marginTop: '4px',
+    color: '#555',
+    fontSize: '13px',
   },
   loading: {
     minHeight: '100vh',

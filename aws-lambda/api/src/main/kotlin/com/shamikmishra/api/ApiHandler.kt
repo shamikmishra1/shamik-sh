@@ -28,7 +28,7 @@ class ApiHandler : RequestHandler<APIGatewayV2HTTPEvent, APIGatewayV2HTTPRespons
             path == "/music" || path == "/now-playing" -> musicResponse()
             path == "/reading" -> readingResponse()
             path == "/track" && method == "POST" -> trackResponse(input)
-            path == "/stats" -> statsResponse(input)
+            path == "/stats" -> statsResponse()
             path == "/auth" && method == "POST" -> authResponse(input)
             else -> notFoundResponse(path)
         }
@@ -58,11 +58,8 @@ class ApiHandler : RequestHandler<APIGatewayV2HTTPEvent, APIGatewayV2HTTPRespons
         return try {
             val body = input.body ?: return badRequestResponse("Missing body")
             val event = json.decodeFromString<TrackEvent>(body)
-
-            val country = extractCountry(input)
-            val device = extractDevice(input)
-
-            AnalyticsService.track(event, country, device)
+            val info = extractVisitorInfo(input)
+            AnalyticsService.track(event, info)
             jsonResponse(mapOf("status" to "tracked"))
         } catch (e: Exception) {
             logger.error(e) { "Failed to track event" }
@@ -70,23 +67,42 @@ class ApiHandler : RequestHandler<APIGatewayV2HTTPEvent, APIGatewayV2HTTPRespons
         }
     }
 
-    private fun extractCountry(input: APIGatewayV2HTTPEvent): String? {
-        val headers = input.headers ?: return null
-        return headers["cloudfront-viewer-country"]
-            ?: headers["CloudFront-Viewer-Country"]
-            ?: headers["x-country"]
+    private fun extractVisitorInfo(input: APIGatewayV2HTTPEvent): VisitorInfo {
+        val headers = input.headers ?: emptyMap()
+        val userAgent = headers["user-agent"] ?: headers["User-Agent"] ?: ""
+
+        return VisitorInfo(
+            country = headers["cloudfront-viewer-country"]
+                ?: headers["CloudFront-Viewer-Country"],
+            device = parseDevice(userAgent),
+            browser = parseBrowser(userAgent),
+            os = parseOS(userAgent),
+            referrer = headers["referer"] ?: headers["Referer"]
+        )
     }
 
-    private fun extractDevice(input: APIGatewayV2HTTPEvent): String? {
-        val headers = input.headers ?: return null
-        val userAgent = headers["user-agent"] ?: headers["User-Agent"] ?: return null
+    private fun parseDevice(ua: String): String = when {
+        ua.contains("Mobile", true) || ua.contains("Android", true) && !ua.contains("Tablet", true) -> "mobile"
+        ua.contains("Tablet", true) || ua.contains("iPad", true) -> "tablet"
+        else -> "desktop"
+    }
 
-        return when {
-            userAgent.contains("Mobile", ignoreCase = true) -> "mobile"
-            userAgent.contains("Tablet", ignoreCase = true) -> "tablet"
-            userAgent.contains("iPad", ignoreCase = true) -> "tablet"
-            else -> "desktop"
-        }
+    private fun parseBrowser(ua: String): String = when {
+        ua.contains("Edg/", true) -> "Edge"
+        ua.contains("Chrome/", true) && !ua.contains("Edg/", true) -> "Chrome"
+        ua.contains("Safari/", true) && !ua.contains("Chrome/", true) -> "Safari"
+        ua.contains("Firefox/", true) -> "Firefox"
+        ua.contains("Opera", true) || ua.contains("OPR/", true) -> "Opera"
+        else -> "Other"
+    }
+
+    private fun parseOS(ua: String): String = when {
+        ua.contains("Windows", true) -> "Windows"
+        ua.contains("Mac OS X", true) || ua.contains("Macintosh", true) -> "macOS"
+        ua.contains("iPhone", true) || ua.contains("iPad", true) -> "iOS"
+        ua.contains("Android", true) -> "Android"
+        ua.contains("Linux", true) -> "Linux"
+        else -> "Other"
     }
 
     private fun authResponse(input: APIGatewayV2HTTPEvent): APIGatewayV2HTTPResponse {
@@ -111,7 +127,7 @@ class ApiHandler : RequestHandler<APIGatewayV2HTTPEvent, APIGatewayV2HTTPRespons
         }
     }
 
-    private fun statsResponse(input: APIGatewayV2HTTPEvent): APIGatewayV2HTTPResponse {
+    private fun statsResponse(): APIGatewayV2HTTPResponse {
         return try {
             val stats = AnalyticsService.getStats()
             jsonResponse(stats)

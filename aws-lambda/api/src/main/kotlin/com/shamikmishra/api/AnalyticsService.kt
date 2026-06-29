@@ -16,59 +16,71 @@ data class TrackEvent(
 )
 
 @Serializable
-data class DailyStats(
-    val date: String,
-    val views: Long
-)
+data class DailyStats(val date: String, val views: Long)
 
 @Serializable
-data class CommandStats(
-    val command: String,
-    val count: Long
-)
-
-@Serializable
-data class CountryStats(
-    val country: String,
-    val count: Long
-)
-
-@Serializable
-data class DeviceStats(
-    val device: String,
-    val count: Long
-)
+data class ItemCount(val name: String, val count: Long)
 
 @Serializable
 data class StatsResponse(
     val totalViews: Long,
     val todayViews: Long,
     val dailyStats: List<DailyStats>,
-    val topCommands: List<CommandStats>,
-    val topCountries: List<CountryStats>,
-    val devices: List<DeviceStats>
+    val topCommands: List<ItemCount>,
+    val countries: List<ItemCount>,
+    val devices: List<ItemCount>,
+    val browsers: List<ItemCount>,
+    val os: List<ItemCount>,
+    val referrers: List<ItemCount>
+)
+
+data class VisitorInfo(
+    val country: String?,
+    val device: String?,
+    val browser: String?,
+    val os: String?,
+    val referrer: String?
 )
 
 object AnalyticsService {
     private val tableName = System.getenv("ANALYTICS_TABLE") ?: "shamikmishra.com-analytics"
     private val client: DynamoDbClient by lazy { DynamoDbClient.create() }
 
-    fun track(event: TrackEvent, country: String?, device: String?) {
+    fun track(event: TrackEvent, info: VisitorInfo) {
         val today = LocalDate.now().format(DateTimeFormatter.ISO_LOCAL_DATE)
+        val isPageView = event.command == null
 
-        incrementCounter("PAGE#${event.page}", "DATE#$today", "views")
-        incrementCounter("TOTAL", "VIEWS", "views")
+        if (isPageView) {
+            incrementCounter("PAGE#${event.page}", "DATE#$today", "views")
+            incrementCounter("TOTAL", "VIEWS", "views")
 
-        event.command?.let { cmd ->
-            incrementCounter("CMD", cmd, "count")
+            info.country?.takeIf { it.isNotBlank() && it.length == 2 }?.let {
+                incrementCounter("COUNTRY", it.uppercase(), "count")
+            }
+            info.device?.takeIf { it.isNotBlank() }?.let {
+                incrementCounter("DEVICE", it, "count")
+            }
+            info.browser?.takeIf { it.isNotBlank() }?.let {
+                incrementCounter("BROWSER", it, "count")
+            }
+            info.os?.takeIf { it.isNotBlank() }?.let {
+                incrementCounter("OS", it, "count")
+            }
+            info.referrer?.takeIf { it.isNotBlank() }?.let { ref ->
+                val domain = extractDomain(ref)
+                if (domain != null) incrementCounter("REFERRER", domain, "count")
+            }
+        } else {
+            incrementCounter("CMD", event.command!!, "count")
         }
+    }
 
-        country?.takeIf { it.isNotBlank() && it != "unknown" }?.let { c ->
-            incrementCounter("COUNTRY", c.uppercase().take(2), "count")
-        }
-
-        device?.takeIf { it.isNotBlank() }?.let { d ->
-            incrementCounter("DEVICE", d, "count")
+    private fun extractDomain(url: String): String? {
+        return try {
+            val cleaned = url.removePrefix("https://").removePrefix("http://").removePrefix("www.")
+            cleaned.substringBefore("/").substringBefore("?").takeIf { it.isNotBlank() }
+        } catch (e: Exception) {
+            null
         }
     }
 
@@ -89,9 +101,12 @@ object AnalyticsService {
             totalViews = getTotalViews(),
             todayViews = getDayViews("terminal", today) + getDayViews("gui", today),
             dailyStats = getLast7DaysStats(),
-            topCommands = getTopItems("CMD", "count"),
-            topCountries = getTopItems("COUNTRY", "count").map { CountryStats(it.command, it.count) },
-            devices = getTopItems("DEVICE", "count").map { DeviceStats(it.command, it.count) }
+            topCommands = getTopItems("CMD"),
+            countries = getTopItems("COUNTRY"),
+            devices = getTopItems("DEVICE"),
+            browsers = getTopItems("BROWSER"),
+            os = getTopItems("OS"),
+            referrers = getTopItems("REFERRER")
         )
     }
 
@@ -120,7 +135,7 @@ object AnalyticsService {
         }.reversed()
     }
 
-    private fun getTopItems(pk: String, field: String): List<CommandStats> {
+    private fun getTopItems(pk: String): List<ItemCount> {
         val response = client.query(QueryRequest.builder()
             .tableName(tableName)
             .keyConditionExpression("pk = :pk")
@@ -130,8 +145,8 @@ object AnalyticsService {
         return response.items()
             .mapNotNull { item ->
                 val sk = item["sk"]?.s() ?: return@mapNotNull null
-                val count = item[field]?.n()?.toLongOrNull() ?: 0L
-                CommandStats(sk, count)
+                val count = item["count"]?.n()?.toLongOrNull() ?: 0L
+                ItemCount(sk, count)
             }
             .sortedByDescending { it.count }
             .take(10)

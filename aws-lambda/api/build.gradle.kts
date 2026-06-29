@@ -8,6 +8,7 @@ dependencies {
     implementation(libs.aws.lambda.java.core)
     implementation(libs.aws.lambda.java.events)
     implementation(libs.aws.sdk.secretsmanager)
+    implementation(libs.aws.sdk.dynamodb)
     implementation(libs.aws.sdk.url.connection.client)
     implementation(libs.kotlinx.serialization.json)
     implementation(libs.kotlin.logging)

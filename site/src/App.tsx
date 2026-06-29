@@ -1,9 +1,10 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import styled from 'styled-components';
 import { Terminal } from './components/Terminal';
 import { useCommandHistory } from './hooks/useCommandHistory';
 import { executeCommand, setThemeCallback } from './commands';
 import { useTheme } from './styles/ThemeProvider';
+import { trackPageView, trackCommand } from './utils/api';
 
 const AppContainer = styled.div`
   min-height: 100vh;
@@ -52,6 +53,10 @@ function App() {
 
   setThemeCallback(setTheme, availableThemes, themeName);
 
+  useEffect(() => {
+    trackPageView('terminal');
+  }, []);
+
   const handleCommand = useCallback(async (command: string) => {
     const trimmedCommand = command.trim().toLowerCase();
 
@@ -65,7 +70,10 @@ function App() {
       return;
     }
 
-    // Show loading state for async commands
+    if (trimmedCommand) {
+      trackCommand(trimmedCommand);
+    }
+
     const asyncCommands = ['music', 'reading'];
     if (asyncCommands.includes(trimmedCommand)) {
       setOutput(prev => [...prev, { command, result: 'Loading...' }]);

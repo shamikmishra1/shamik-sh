@@ -60,6 +60,19 @@ const Result = styled.pre`
   word-wrap: break-word;
 `;
 
+const ProfileImage = styled.img`
+  width: 120px;
+  height: 120px;
+  border-radius: 8px;
+  margin-bottom: 12px;
+  object-fit: cover;
+
+  @media (max-width: 768px) {
+    width: 100px;
+    height: 100px;
+  }
+`;
+
 const InputLine = styled.div`
   display: flex;
   align-items: center;
@@ -90,6 +103,21 @@ interface TerminalProps {
   onCommand: (command: string) => void;
   history: string[];
   onNavigateHistory: (direction: 'up' | 'down') => string | undefined;
+}
+
+function renderResult(result: string) {
+  const imageMatch = result.match(/^<img:([^>]+)>/);
+  if (imageMatch) {
+    const imageSrc = imageMatch[1];
+    const textContent = result.replace(/^<img:[^>]+>\n?/, '');
+    return (
+      <>
+        <ProfileImage src={imageSrc} alt="Profile" />
+        <Result>{textContent}</Result>
+      </>
+    );
+  }
+  return <Result>{result}</Result>;
 }
 
 export function Terminal({ output, onCommand, onNavigateHistory }: TerminalProps) {
@@ -149,7 +177,7 @@ export function Terminal({ output, onCommand, onNavigateHistory }: TerminalProps
                   <Command>{item.command}</Command>
                 </CommandLine>
               )}
-              <Result>{item.result}</Result>
+              {renderResult(item.result)}
             </OutputLine>
           ))}
           <InputLine>
@@ -174,7 +202,7 @@ export function Terminal({ output, onCommand, onNavigateHistory }: TerminalProps
   );
 }
 
-const COMMANDS = ['help', 'about', 'projects', 'socials', 'blog', 'themes', 'clear', 'welcome', 'echo', 'pwd', 'music'];
+const COMMANDS = ['help', 'about', 'projects', 'socials', 'blog', 'themes', 'clear', 'welcome', 'echo', 'pwd', 'music', 'reading'];
 
 function autocomplete(input: string): string | null {
   if (!input) return null;

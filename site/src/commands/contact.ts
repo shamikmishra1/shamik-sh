@@ -4,7 +4,9 @@ export function contact(): string {
 
 export function socials(): string {
   return `
-GitHub    github.com/shamikmishra1
+I avoid most social media - too many notifications, not enough silence.
+If you want to reach me, email works best. I actually read those.
+
 Email     shamik.mishra1@yahoo.in
 `;
 }

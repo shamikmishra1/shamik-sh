@@ -65,8 +65,16 @@ function App() {
       return;
     }
 
-    const result = await executeCommand(trimmedCommand);
-    setOutput(prev => [...prev, { command, result }]);
+    // Show loading state for async commands
+    const asyncCommands = ['music', 'reading'];
+    if (asyncCommands.includes(trimmedCommand)) {
+      setOutput(prev => [...prev, { command, result: 'Loading...' }]);
+      const result = await executeCommand(trimmedCommand);
+      setOutput(prev => [...prev.slice(0, -1), { command, result }]);
+    } else {
+      const result = await executeCommand(trimmedCommand);
+      setOutput(prev => [...prev, { command, result }]);
+    }
 
     if (trimmedCommand) {
       addToHistory(command);

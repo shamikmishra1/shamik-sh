@@ -181,6 +181,11 @@ resource "aws_lambda_function" "api" {
   timeout       = 30
   memory_size   = 512
   filename      = data.archive_file.lambda_placeholder.output_path
+  publish       = true
+
+  snap_start {
+    apply_on = "PublishedVersions"
+  }
 
   environment {
     variables = {
@@ -193,6 +198,12 @@ resource "aws_lambda_function" "api" {
   lifecycle {
     ignore_changes = [filename, s3_bucket, s3_key, source_code_hash]
   }
+}
+
+resource "aws_lambda_alias" "api_live" {
+  name             = "live"
+  function_name    = aws_lambda_function.api.function_name
+  function_version = aws_lambda_function.api.version
 }
 
 # =============================================================================
@@ -219,7 +230,7 @@ resource "aws_apigatewayv2_stage" "api" {
 resource "aws_apigatewayv2_integration" "api" {
   api_id                 = aws_apigatewayv2_api.api.id
   integration_type       = "AWS_PROXY"
-  integration_uri        = aws_lambda_function.api.invoke_arn
+  integration_uri        = aws_lambda_alias.api_live.invoke_arn
   payload_format_version = "2.0"
 }
 
@@ -245,6 +256,7 @@ resource "aws_lambda_permission" "api_gateway" {
   statement_id  = "AllowAPIGatewayInvoke"
   action        = "lambda:InvokeFunction"
   function_name = aws_lambda_function.api.function_name
+  qualifier     = aws_lambda_alias.api_live.name
   principal     = "apigateway.amazonaws.com"
   source_arn    = "${aws_apigatewayv2_api.api.execution_arn}/*/*"
 }

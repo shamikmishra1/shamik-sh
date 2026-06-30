@@ -3,6 +3,8 @@ import { about } from './about';
 import { projects } from './projects';
 import { contact, socials } from './contact';
 import { easterEggs } from './easterEggs';
+import { travel } from './travel';
+import { matrix } from './matrix';
 import { ThemeName } from '../styles/theme';
 import { fetchNowPlaying, fetchReading } from '../utils/api';
 
@@ -42,16 +44,25 @@ Example: themes dracula
   return `Unknown theme: ${args}\nAvailable: ${_availableThemes.join(', ')}`;
 }
 
+function whoami(): string {
+  return `visitor@shamikmishra.com
+
+You're a curious soul exploring my terminal.
+Type 'about' to learn about me instead.`;
+}
+
 const commands: Record<string, CommandHandler> = {
   help,
   about,
-  whoami: about,
+  whoami,
   projects,
   contact,
   socials,
   themes: handleThemes,
   music: () => fetchNowPlaying(),
   reading: () => fetchReading(),
+  travel,
+  matrix,
   blog: () => `Coming soon... check back later!`,
   ...easterEggs,
 };

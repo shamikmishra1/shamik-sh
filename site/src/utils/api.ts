@@ -48,12 +48,13 @@ export async function fetchNowPlaying(): Promise<string> {
 interface Book {
   title: string;
   author: string;
+  coverUrl?: string;
   status: string;
 }
 
 interface ReadingResponse {
   currentlyReading: Book[];
-  finished: Book[];
+  recentlyRead: Book[];
 }
 
 export async function fetchReading(): Promise<string> {
@@ -64,20 +65,20 @@ export async function fetchReading(): Promise<string> {
     let result = '';
 
     if (data.currentlyReading.length > 0) {
-      result += 'Currently reading:\n';
+      result += '📖 Currently reading:\n';
       data.currentlyReading.forEach(book => {
-        result += `  📖 ${book.title}\n     by ${book.author}\n`;
+        result += `  ${book.title}\n  by ${book.author}\n\n`;
       });
     }
 
-    if (data.finished.length > 0) {
-      result += '\nRecently finished:\n';
-      data.finished.forEach(book => {
-        result += `  ✓ ${book.title}\n     by ${book.author}\n`;
+    if (data.recentlyRead.length > 0) {
+      result += '✓ Recently finished:\n';
+      data.recentlyRead.forEach(book => {
+        result += `  ${book.title}\n  by ${book.author}\n\n`;
       });
     }
 
-    return result || 'No reading data available.';
+    return result.trim() || 'No reading data available.';
   } catch {
     return 'Could not fetch reading data.';
   }

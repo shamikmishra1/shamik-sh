@@ -26,10 +26,6 @@ locals {
 
 data "aws_caller_identity" "current" {}
 
-# =============================================================================
-# S3 BUCKETS
-# =============================================================================
-
 resource "aws_s3_bucket" "website" {
   bucket = "${var.domain_name}-website"
   tags   = { Name = "${var.domain_name} Website" }
@@ -73,10 +69,6 @@ resource "aws_s3_bucket_public_access_block" "admin" {
   restrict_public_buckets = true
 }
 
-# =============================================================================
-# DYNAMODB (Analytics)
-# =============================================================================
-
 resource "aws_dynamodb_table" "analytics" {
   name         = "${var.domain_name}-analytics"
   billing_mode = "PAY_PER_REQUEST"
@@ -101,17 +93,13 @@ resource "aws_dynamodb_table" "analytics" {
   tags = { Name = "${var.domain_name} Analytics" }
 }
 
-# =============================================================================
-# SECRETS MANAGER (references existing secret - create manually in AWS Console)
-# =============================================================================
-
 data "aws_secretsmanager_secret" "api_secrets" {
   name = "${var.domain_name}/api"
 }
 
-# =============================================================================
-# ACM CERTIFICATES
-# =============================================================================
+data "aws_secretsmanager_secret" "hardcover_token" {
+  name = "shamikmishra/hardcover-token"
+}
 
 resource "aws_acm_certificate" "website" {
   provider                  = aws.us_east_1
@@ -202,10 +190,6 @@ resource "aws_acm_certificate_validation" "admin" {
   validation_record_fqdns = [for record in aws_route53_record.admin_cert_validation : record.fqdn]
 }
 
-# =============================================================================
-# LAMBDA
-# =============================================================================
-
 resource "aws_iam_role" "lambda_role" {
   name = "${var.domain_name}-lambda-role"
   assume_role_policy = jsonencode({
@@ -231,7 +215,10 @@ resource "aws_iam_role_policy" "lambda_secrets" {
     Statement = [{
       Effect   = "Allow"
       Action   = ["secretsmanager:GetSecretValue"]
-      Resource = [data.aws_secretsmanager_secret.api_secrets.arn]
+      Resource = [
+        data.aws_secretsmanager_secret.api_secrets.arn,
+        data.aws_secretsmanager_secret.hardcover_token.arn
+      ]
     }]
   })
 }
@@ -299,10 +286,6 @@ resource "aws_lambda_alias" "api_live" {
   function_name    = aws_lambda_function.api.function_name
   function_version = aws_lambda_function.api.version
 }
-
-# =============================================================================
-# API GATEWAY
-# =============================================================================
 
 resource "aws_apigatewayv2_api" "api" {
   name          = "${var.domain_name}-api"
@@ -393,10 +376,6 @@ resource "aws_apigatewayv2_api_mapping" "api" {
   stage       = aws_apigatewayv2_stage.api.id
 }
 
-# =============================================================================
-# CLOUDFRONT
-# =============================================================================
-
 resource "aws_cloudfront_origin_access_control" "website" {
   name                              = "${var.domain_name}-oac"
   origin_access_control_origin_type = "s3"
@@ -475,10 +454,6 @@ resource "aws_s3_bucket_policy" "website" {
   })
 }
 
-# =============================================================================
-# ROUTE 53
-# =============================================================================
-
 resource "aws_route53_record" "website_a" {
   zone_id = var.hosted_zone_id
   name    = var.domain_name
@@ -533,10 +508,6 @@ resource "aws_route53_record" "api_a" {
     evaluate_target_health = false
   }
 }
-
-# =============================================================================
-# ADMIN SITE (admin.shamikmishra.com)
-# =============================================================================
 
 resource "aws_cloudfront_origin_access_control" "admin" {
   name                              = "${var.domain_name}-admin-oac"

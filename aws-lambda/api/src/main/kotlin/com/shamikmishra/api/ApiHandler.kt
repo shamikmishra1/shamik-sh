@@ -47,11 +47,12 @@ class ApiHandler : RequestHandler<APIGatewayV2HTTPEvent, APIGatewayV2HTTPRespons
     }
 
     private fun readingResponse(): APIGatewayV2HTTPResponse {
-        val response = ReadingResponse(
-            currentlyReading = ReadingList.getReading(),
-            finished = ReadingList.getFinished()
-        )
-        return jsonResponse(response)
+        return try {
+            jsonResponse(getReadingResponse(), raw = true)
+        } catch (e: Exception) {
+            logger.error(e) { "Failed to get reading data" }
+            jsonResponse("""{"currentlyReading":[],"recentlyRead":[]}""", raw = true)
+        }
     }
 
     private fun trackResponse(input: APIGatewayV2HTTPEvent): APIGatewayV2HTTPResponse {
@@ -165,6 +166,13 @@ class ApiHandler : RequestHandler<APIGatewayV2HTTPEvent, APIGatewayV2HTTPRespons
         .withStatusCode(200)
         .withHeaders(corsHeaders())
         .withBody(json.encodeToString(body))
+        .build()
+
+    @Suppress("UNUSED_PARAMETER")
+    private fun jsonResponse(body: String, raw: Boolean) = APIGatewayV2HTTPResponse.builder()
+        .withStatusCode(200)
+        .withHeaders(corsHeaders())
+        .withBody(body)
         .build()
 
     private fun corsHeaders() = mapOf(

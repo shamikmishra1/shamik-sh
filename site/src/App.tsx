@@ -14,28 +14,8 @@ const AppContainer = styled.div`
 `;
 
 const getWelcomeMessage = () => {
-  const isMobile = window.innerWidth < 600;
-
-  if (isMobile) {
-    return `
-┌─────────────────────┐
-│   Shamik Mishra     │
-└─────────────────────┘
-
-Building things.
-Breaking things.
-Fixing things.
-
-Type 'help' to explore.
-`;
-  }
-
   return `
- ____  _                 _ _      __  __ _     _
-/ ___|| |__   __ _ _ __ (_) | __ |  \\/  (_)___| |__  _ __ __ _
-\\___ \\| '_ \\ / _' | '_ \\| | |/ / | |\\/| | / __| '_ \\| '__/ _' |
- ___) | | | | (_| | | | | |   <  | |  | | \\__ \\ | | | | | (_| |
-|____/|_| |_|\\__,_|_| |_|_|_|\\_\\ |_|  |_|_|___/_| |_|_|  \\__,_|
+> shamik mishra_
 
 Building things. Breaking things. Fixing things.
 
@@ -61,7 +41,7 @@ function App() {
     const trimmedCommand = command.trim().toLowerCase();
 
     if (trimmedCommand === 'clear') {
-      setOutput([]);
+      setOutput([{ command: '', result: getWelcomeMessage() }]);
       return;
     }
 

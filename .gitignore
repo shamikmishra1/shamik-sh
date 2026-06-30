@@ -47,6 +47,7 @@ site/.env.local
 
 # Personal assets (stored in S3 only)
 site/public/shamik.jpg
+site/public/travel/
 Thumbs.db
 
 # Logs

@@ -1,5 +1,7 @@
-import { useRef, useEffect, useState } from 'react';
+import { useRef, useEffect, useState, lazy, Suspense } from 'react';
 import styled from 'styled-components';
+
+const TravelMap = lazy(() => import('./TravelMap').then(m => ({ default: m.TravelMap })));
 
 const TerminalContainer = styled.div`
   flex: 1;
@@ -106,6 +108,13 @@ interface TerminalProps {
 }
 
 function renderResult(result: string) {
+  if (result === '<travel-map>') {
+    return (
+      <Suspense fallback={<Result>Loading map...</Result>}>
+        <TravelMap />
+      </Suspense>
+    );
+  }
   const imageMatch = result.match(/^<img:([^>]+)>/);
   if (imageMatch) {
     const imageSrc = imageMatch[1];
@@ -202,7 +211,7 @@ export function Terminal({ output, onCommand, onNavigateHistory }: TerminalProps
   );
 }
 
-const COMMANDS = ['help', 'about', 'projects', 'socials', 'blog', 'themes', 'clear', 'welcome', 'echo', 'pwd', 'music', 'reading'];
+const COMMANDS = ['help', 'about', 'projects', 'socials', 'blog', 'themes', 'clear', 'welcome', 'echo', 'pwd', 'music', 'reading', 'travel', 'matrix', 'whoami'];
 
 function autocomplete(input: string): string | null {
   if (!input) return null;

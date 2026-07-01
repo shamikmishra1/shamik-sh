@@ -5,6 +5,7 @@ const API_URL = 'https://api.shamikmishra.com'
 interface DailyStats {
   date: string
   views: number
+  uniqueVisitors: number
 }
 
 interface ItemCount {
@@ -14,7 +15,9 @@ interface ItemCount {
 
 interface Stats {
   totalViews: number
+  totalUniqueVisitors: number
   todayViews: number
+  todayUniqueVisitors: number
   dailyStats: DailyStats[]
   topCommands: ItemCount[]
   countries: ItemCount[]
@@ -114,7 +117,9 @@ function Dashboard({ stats, onLogout }: { stats: Stats; onLogout: () => void }) 
 
       <div style={styles.statsGrid}>
         <StatCard value={stats.totalViews} label="Total Views" />
-        <StatCard value={stats.todayViews} label="Today" />
+        <StatCard value={stats.totalUniqueVisitors} label="Unique Visitors" />
+        <StatCard value={stats.todayViews} label="Today Views" />
+        <StatCard value={stats.todayUniqueVisitors} label="Today Unique" />
       </div>
 
       <div style={styles.section}>
@@ -122,7 +127,7 @@ function Dashboard({ stats, onLogout }: { stats: Stats; onLogout: () => void }) 
         <div style={styles.chart}>
           {stats.dailyStats.map((day) => (
             <div key={day.date} style={styles.chartBar}>
-              <div style={styles.barValue}>{day.views}</div>
+              <div style={styles.barValue}>{day.views} / {day.uniqueVisitors}</div>
               <div style={{ ...styles.bar, height: `${Math.max((day.views / maxViews) * 100, 4)}%` }} />
               <div style={styles.barLabel}>{day.date.slice(5)}</div>
             </div>
@@ -286,7 +291,7 @@ const styles: Record<string, React.CSSProperties> = {
   },
   statsGrid: {
     display: 'grid',
-    gridTemplateColumns: 'repeat(2, 1fr)',
+    gridTemplateColumns: 'repeat(4, 1fr)',
     gap: '16px',
     marginBottom: '32px',
   },

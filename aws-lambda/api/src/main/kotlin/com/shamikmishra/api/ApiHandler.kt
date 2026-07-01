@@ -71,6 +71,8 @@ class ApiHandler : RequestHandler<APIGatewayV2HTTPEvent, APIGatewayV2HTTPRespons
     private fun extractVisitorInfo(input: APIGatewayV2HTTPEvent): VisitorInfo {
         val headers = input.headers ?: emptyMap()
         val userAgent = headers["user-agent"] ?: headers["User-Agent"] ?: ""
+        val ip = headers["x-forwarded-for"]?.split(",")?.firstOrNull()?.trim()
+            ?: input.requestContext?.http?.sourceIp
 
         return VisitorInfo(
             country = headers["cloudfront-viewer-country"]
@@ -78,7 +80,8 @@ class ApiHandler : RequestHandler<APIGatewayV2HTTPEvent, APIGatewayV2HTTPRespons
             device = parseDevice(userAgent),
             browser = parseBrowser(userAgent),
             os = parseOS(userAgent),
-            referrer = headers["referer"] ?: headers["Referer"]
+            referrer = headers["referer"] ?: headers["Referer"],
+            ipHash = AnalyticsService.hashIp(ip)
         )
     }
 

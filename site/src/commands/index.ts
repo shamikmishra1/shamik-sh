@@ -5,6 +5,7 @@ import { contact, socials } from './contact';
 import { easterEggs } from './easterEggs';
 import { travel } from './travel';
 import { matrix } from './matrix';
+import { surprise } from './surprise';
 import { ThemeName } from '../styles/theme';
 import { fetchNowPlaying, fetchReading } from '../utils/api';
 
@@ -63,6 +64,7 @@ const commands: Record<string, CommandHandler> = {
   reading: () => fetchReading(),
   travel,
   matrix,
+  surprise,
   blog: () => `Coming soon... check back later!`,
   ...easterEggs,
 };

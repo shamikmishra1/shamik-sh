@@ -5,6 +5,7 @@ import software.amazon.awssdk.services.dynamodb.DynamoDbClient
 import software.amazon.awssdk.services.dynamodb.model.AttributeValue
 import software.amazon.awssdk.services.dynamodb.model.QueryRequest
 import software.amazon.awssdk.services.dynamodb.model.UpdateItemRequest
+import java.security.MessageDigest
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
 
@@ -16,7 +17,7 @@ data class TrackEvent(
 )
 
 @Serializable
-data class DailyStats(val date: String, val views: Long)
+data class DailyStats(val date: String, val views: Long, val uniqueVisitors: Long)
 
 @Serializable
 data class ItemCount(val name: String, val count: Long)
@@ -24,7 +25,9 @@ data class ItemCount(val name: String, val count: Long)
 @Serializable
 data class StatsResponse(
     val totalViews: Long,
+    val totalUniqueVisitors: Long,
     val todayViews: Long,
+    val todayUniqueVisitors: Long,
     val dailyStats: List<DailyStats>,
     val topCommands: List<ItemCount>,
     val countries: List<ItemCount>,
@@ -39,12 +42,19 @@ data class VisitorInfo(
     val device: String?,
     val browser: String?,
     val os: String?,
-    val referrer: String?
+    val referrer: String?,
+    val ipHash: String?
 )
 
 object AnalyticsService {
     private val tableName = System.getenv("ANALYTICS_TABLE") ?: "shamikmishra.com-analytics"
     private val client: DynamoDbClient by lazy { DynamoDbClient.create() }
+
+    fun hashIp(ip: String?): String? {
+        if (ip.isNullOrBlank()) return null
+        val bytes = MessageDigest.getInstance("SHA-256").digest(ip.toByteArray())
+        return bytes.take(8).joinToString("") { "%02x".format(it) }
+    }
 
     fun track(event: TrackEvent, info: VisitorInfo) {
         val today = LocalDate.now().format(DateTimeFormatter.ISO_LOCAL_DATE)
@@ -53,6 +63,10 @@ object AnalyticsService {
         if (isPageView) {
             incrementCounter("PAGE#${event.page}", "DATE#$today", "views")
             incrementCounter("TOTAL", "VIEWS", "views")
+
+            info.ipHash?.let { hash ->
+                trackUniqueVisitor(hash, today)
+            }
 
             info.country?.takeIf { it.isNotBlank() && it.length == 2 }?.let {
                 incrementCounter("COUNTRY", it.uppercase(), "count")
@@ -72,6 +86,23 @@ object AnalyticsService {
             }
         } else {
             incrementCounter("CMD", event.command!!, "count")
+        }
+    }
+
+    private fun trackUniqueVisitor(ipHash: String, date: String) {
+        try {
+            client.updateItem(UpdateItemRequest.builder()
+                .tableName(tableName)
+                .key(mapOf("pk" to attr("VISITOR#$date"), "sk" to attr(ipHash)))
+                .updateExpression("SET #v = :v")
+                .conditionExpression("attribute_not_exists(pk)")
+                .expressionAttributeNames(mapOf("#v" to "visited"))
+                .expressionAttributeValues(mapOf(":v" to AttributeValue.builder().bool(true).build()))
+                .build())
+            incrementCounter("UNIQUE", "DATE#$date", "count")
+            incrementCounter("TOTAL", "UNIQUE", "count")
+        } catch (e: Exception) {
+            // Visitor already tracked today
         }
     }
 
@@ -99,7 +130,9 @@ object AnalyticsService {
 
         return StatsResponse(
             totalViews = getTotalViews(),
+            totalUniqueVisitors = getTotalUniqueVisitors(),
             todayViews = getDayViews("terminal", today) + getDayViews("gui", today),
+            todayUniqueVisitors = getDayUniqueVisitors(today),
             dailyStats = getLast7DaysStats(),
             topCommands = getTopItems("CMD"),
             countries = getTopItems("COUNTRY"),
@@ -118,6 +151,14 @@ object AnalyticsService {
         return response.item()?.get("views")?.n()?.toLongOrNull() ?: 0L
     }
 
+    private fun getTotalUniqueVisitors(): Long {
+        val response = client.getItem { req ->
+            req.tableName(tableName)
+                .key(mapOf("pk" to attr("TOTAL"), "sk" to attr("UNIQUE")))
+        }
+        return response.item()?.get("count")?.n()?.toLongOrNull() ?: 0L
+    }
+
     private fun getDayViews(page: String, date: String): Long {
         val response = client.getItem { req ->
             req.tableName(tableName)
@@ -126,12 +167,21 @@ object AnalyticsService {
         return response.item()?.get("views")?.n()?.toLongOrNull() ?: 0L
     }
 
+    private fun getDayUniqueVisitors(date: String): Long {
+        val response = client.getItem { req ->
+            req.tableName(tableName)
+                .key(mapOf("pk" to attr("UNIQUE"), "sk" to attr("DATE#$date")))
+        }
+        return response.item()?.get("count")?.n()?.toLongOrNull() ?: 0L
+    }
+
     private fun getLast7DaysStats(): List<DailyStats> {
         val dates = (0..6).map { LocalDate.now().minusDays(it.toLong()) }
         return dates.map { date ->
             val dateStr = date.format(DateTimeFormatter.ISO_LOCAL_DATE)
             val views = getDayViews("terminal", dateStr) + getDayViews("gui", dateStr)
-            DailyStats(date = dateStr, views = views)
+            val unique = getDayUniqueVisitors(dateStr)
+            DailyStats(date = dateStr, views = views, uniqueVisitors = unique)
         }.reversed()
     }
 

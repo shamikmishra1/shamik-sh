@@ -95,9 +95,28 @@ const Input = styled.input`
   }
 `;
 
+const Link = styled.a`
+  color: ${({ theme }) => theme.colors.primary};
+  text-decoration: none;
+  &:hover {
+    text-decoration: underline;
+  }
+`;
+
 interface OutputItem {
   command: string;
   result: string;
+}
+
+function linkify(text: string) {
+  const urlRegex = /(https?:\/\/[^\s]+)/g;
+  const parts = text.split(urlRegex);
+  return parts.map((part, i) => {
+    if (part.match(urlRegex)) {
+      return <Link key={i} href={part} target="_blank" rel="noopener noreferrer">{part}</Link>;
+    }
+    return part;
+  });
 }
 
 interface TerminalProps {
@@ -122,11 +141,11 @@ function renderResult(result: string) {
     return (
       <>
         <ProfileImage src={imageSrc} alt="Profile" />
-        <Result>{textContent}</Result>
+        <Result>{linkify(textContent)}</Result>
       </>
     );
   }
-  return <Result>{result}</Result>;
+  return <Result>{linkify(result)}</Result>;
 }
 
 export function Terminal({ output, onCommand, onNavigateHistory }: TerminalProps) {

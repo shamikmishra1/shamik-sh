@@ -1,14 +1,15 @@
 package com.shamikmishra.api
 
-import io.ktor.client.*
-import io.ktor.client.call.*
-import io.ktor.client.engine.java.*
-import io.ktor.client.plugins.contentnegotiation.*
-import io.ktor.client.request.*
-import io.ktor.serialization.kotlinx.json.*
+import io.github.oshai.kotlinlogging.KotlinLogging
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
+import java.net.URI
+import java.net.http.HttpClient
+import java.net.http.HttpRequest
+import java.net.http.HttpResponse
+
+private val logger = KotlinLogging.logger {}
 
 @Serializable
 data class LastFmResponse(
@@ -52,27 +53,30 @@ data class NowPlayingResponse(
 )
 
 object LastFmService {
-    private val client = HttpClient(Java) {
-        install(ContentNegotiation) {
-            json(Json { ignoreUnknownKeys = true })
-        }
-    }
+    private val json = Json { ignoreUnknownKeys = true }
 
     suspend fun getNowPlaying(): NowPlayingResponse {
         val apiKey = Secrets.lastfmApiKey ?: return NowPlayingResponse(playing = false)
         val username = Secrets.lastfmUsername ?: return NowPlayingResponse(playing = false)
 
         return try {
-            val response: LastFmResponse = client.get("https://ws.audioscrobbler.com/2.0/") {
-                parameter("method", "user.getrecenttracks")
-                parameter("user", username)
-                parameter("api_key", apiKey)
-                parameter("format", "json")
-                parameter("limit", "1")
-            }.body()
+            val url = "https://ws.audioscrobbler.com/2.0/?method=user.getrecenttracks&user=$username&api_key=$apiKey&format=json&limit=1"
 
-            val track = response.recenttracks?.track?.firstOrNull()
+            val client = HttpClient.newHttpClient()
+            val request = HttpRequest.newBuilder()
+                .uri(URI.create(url))
+                .GET()
+                .build()
+
+            val response = client.send(request, HttpResponse.BodyHandlers.ofString())
+            logger.info { "Last.fm raw response: ${response.body()}" }
+
+            val parsed = json.decodeFromString<LastFmResponse>(response.body())
+
+            val track = parsed.recenttracks?.track?.firstOrNull()
                 ?: return NowPlayingResponse(playing = false)
+
+            logger.info { "Track: ${track.name}, nowplaying attr: ${track.attr?.nowplaying}" }
 
             NowPlayingResponse(
                 playing = track.attr?.nowplaying == "true",
@@ -81,6 +85,7 @@ object LastFmService {
                 album = track.album?.name
             )
         } catch (e: Exception) {
+            logger.error(e) { "Failed to get now playing" }
             NowPlayingResponse(playing = false)
         }
     }

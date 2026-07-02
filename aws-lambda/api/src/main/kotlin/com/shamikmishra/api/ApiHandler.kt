@@ -182,7 +182,8 @@ class ApiHandler : RequestHandler<APIGatewayV2HTTPEvent, APIGatewayV2HTTPRespons
         "Content-Type" to "application/json",
         "Access-Control-Allow-Origin" to "*",
         "Access-Control-Allow-Methods" to "GET, POST, OPTIONS",
-        "Access-Control-Allow-Headers" to "Content-Type, Authorization"
+        "Access-Control-Allow-Headers" to "Content-Type, Authorization",
+        "Cache-Control" to "no-cache, no-store, must-revalidate"
     )
 }
 

@@ -1,7 +1,54 @@
 import { useRef, useEffect, useState, lazy, Suspense } from 'react';
-import styled from 'styled-components';
+import styled, { keyframes, css } from 'styled-components';
 
 const TravelMap = lazy(() => import('./TravelMap').then(m => ({ default: m.TravelMap })));
+
+const glitch = keyframes`
+  0% { transform: translate(0); }
+  20% { transform: translate(-2px, 2px); }
+  40% { transform: translate(-2px, -2px); }
+  60% { transform: translate(2px, 2px); }
+  80% { transform: translate(2px, -2px); }
+  100% { transform: translate(0); }
+`;
+
+const flicker = keyframes`
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.3; }
+`;
+
+const GlitchText = styled.div<{ $active: boolean }>`
+  ${({ $active }) => $active && css`
+    animation: ${glitch} 0.1s infinite, ${flicker} 0.15s infinite;
+    color: #ff0000;
+    text-shadow: 2px 2px #00ff00, -2px -2px #0000ff;
+  `}
+`;
+
+const HackContainer = styled.div`
+  color: #00ff00;
+  font-family: monospace;
+`;
+
+const HackLine = styled.div<{ $delay: number }>`
+  opacity: 0;
+  animation: fadeIn 0.3s forwards;
+  animation-delay: ${({ $delay }) => $delay}s;
+
+  @keyframes fadeIn {
+    to { opacity: 1; }
+  }
+`;
+
+const ConfettiCanvas = styled.canvas`
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  z-index: 9999;
+`;
 
 const TerminalContainer = styled.div`
   flex: 1;
@@ -126,6 +173,124 @@ interface TerminalProps {
   onNavigateHistory: (direction: 'up' | 'down') => string | undefined;
 }
 
+function GlitchEffect({ frames }: { frames: string[] }) {
+  const [index, setIndex] = useState(0);
+  const [done, setDone] = useState(false);
+
+  useEffect(() => {
+    if (index < frames.length - 1) {
+      const timer = setTimeout(() => setIndex(i => i + 1), 800);
+      return () => clearTimeout(timer);
+    } else {
+      const timer = setTimeout(() => setDone(true), 1000);
+      return () => clearTimeout(timer);
+    }
+  }, [index, frames.length]);
+
+  return (
+    <GlitchText $active={!done}>
+      {frames[index]}
+    </GlitchText>
+  );
+}
+
+function HackEffect() {
+  const lines = [
+    '> Initializing hack sequence...',
+    '> Accessing mainframe...',
+    '> Bypassing firewall... [OK]',
+    '> Decrypting passwords... [OK]',
+    '> Downloading secrets... [OK]',
+    '> Covering tracks... [OK]',
+    '',
+    'Just kidding. This is a portfolio website.',
+    'But you looked pretty cool typing that. 😎',
+  ];
+
+  return (
+    <HackContainer>
+      {lines.map((line, i) => (
+        <HackLine key={i} $delay={i * 0.4}>{line}</HackLine>
+      ))}
+    </HackContainer>
+  );
+}
+
+function Confetti({ onComplete }: { onComplete: () => void }) {
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+
+    canvas.width = window.innerWidth;
+    canvas.height = window.innerHeight;
+
+    const particles: Array<{
+      x: number;
+      y: number;
+      vx: number;
+      vy: number;
+      color: string;
+      size: number;
+    }> = [];
+
+    const colors = ['#ff0000', '#00ff00', '#0000ff', '#ffff00', '#ff00ff', '#00ffff', '#ffffff'];
+
+    for (let i = 0; i < 150; i++) {
+      particles.push({
+        x: Math.random() * canvas.width,
+        y: -20 - Math.random() * 100,
+        vx: (Math.random() - 0.5) * 4,
+        vy: Math.random() * 3 + 2,
+        color: colors[Math.floor(Math.random() * colors.length)],
+        size: Math.random() * 8 + 4,
+      });
+    }
+
+    let frame = 0;
+    const animate = () => {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+      particles.forEach(p => {
+        p.x += p.vx;
+        p.y += p.vy;
+        p.vy += 0.1;
+
+        ctx.fillStyle = p.color;
+        ctx.fillRect(p.x, p.y, p.size, p.size);
+      });
+
+      frame++;
+      if (frame < 180) {
+        requestAnimationFrame(animate);
+      } else {
+        onComplete();
+      }
+    };
+
+    animate();
+  }, [onComplete]);
+
+  return <ConfettiCanvas ref={canvasRef} />;
+}
+
+function KonamiEffect() {
+  const [showConfetti, setShowConfetti] = useState(true);
+
+  return (
+    <>
+      {showConfetti && <Confetti onComplete={() => setShowConfetti(false)} />}
+      <Result>
+        🎉 You found the secret! 🎉
+      </Result>
+    </>
+  );
+}
+
 function renderResult(result: string) {
   if (result === '<travel-map>') {
     return (
@@ -134,6 +299,21 @@ function renderResult(result: string) {
       </Suspense>
     );
   }
+
+  const glitchMatch = result.match(/^<glitch>(.+)<\/glitch>$/);
+  if (glitchMatch) {
+    const frames = glitchMatch[1].split('|');
+    return <GlitchEffect frames={frames} />;
+  }
+
+  if (result === '<hack>') {
+    return <HackEffect />;
+  }
+
+  if (result === '<konami>') {
+    return <KonamiEffect />;
+  }
+
   const imageMatch = result.match(/^<img:([^>]+)>/);
   if (imageMatch) {
     const imageSrc = imageMatch[1];

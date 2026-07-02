@@ -263,10 +263,6 @@ resource "aws_lambda_function" "api" {
   filename      = data.archive_file.lambda_placeholder.output_path
   publish       = true
 
-  snap_start {
-    apply_on = "PublishedVersions"
-  }
-
   environment {
     variables = {
       SECRETS_ARN    = data.aws_secretsmanager_secret.api_secrets.arn

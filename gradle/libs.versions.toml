@@ -15,6 +15,7 @@ aws-lambda-java-core = { module = "com.amazonaws:aws-lambda-java-core", version.
 aws-lambda-java-events = { module = "com.amazonaws:aws-lambda-java-events", version.ref = "aws-lambda-java-events" }
 aws-sdk-secretsmanager = { module = "software.amazon.awssdk:secretsmanager", version.ref = "aws-sdk" }
 aws-sdk-dynamodb = { module = "software.amazon.awssdk:dynamodb", version.ref = "aws-sdk" }
+aws-sdk-costexplorer = { module = "software.amazon.awssdk:costexplorer", version.ref = "aws-sdk" }
 aws-sdk-url-connection-client = { module = "software.amazon.awssdk:url-connection-client", version.ref = "aws-sdk" }
 kotlin-logging = { module = "io.github.oshai:kotlin-logging-jvm", version.ref = "kotlin-logging" }
 kotlinx-serialization-json = { module = "org.jetbrains.kotlinx:kotlinx-serialization-json", version.ref = "kotlinx-serialization" }

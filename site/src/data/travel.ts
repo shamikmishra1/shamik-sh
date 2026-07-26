@@ -15,6 +15,27 @@ export interface Country {
 
 // Photos go in: site/public/travel/<country>/<place>/
 export const destinations: Record<string, Country> = {
+  iceland: {
+    name: 'Iceland',
+    flag: '🇮🇸',
+    coords: [64.9631, -19.0208],
+    places: {
+      grindavik: {
+        name: 'Grindavík',
+        coords: [63.8422, -22.4328],
+        photos: ['grindavik.jpeg'],
+        description: 'Visited right before the volcano woke up. Timing is everything.',
+        date: 'July 2019'
+      },
+      vik: {
+        name: 'Vík',
+        coords: [63.4186, -19.0060],
+        photos: ['vik.jpeg'],
+        description: 'Now I get why they filmed the moon landing here.',
+        date: 'July 2019'
+      }
+    }
+  },
   greece: {
     name: 'Greece',
     flag: '🇬🇷',

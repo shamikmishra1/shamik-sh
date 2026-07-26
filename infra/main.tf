@@ -21,6 +21,7 @@ provider "aws" {
 locals {
   s3_origin_id     = "S3-${var.domain_name}"
   s3_admin_origin  = "S3-admin-${var.domain_name}"
+  api_origin_id    = "API-${var.domain_name}"
   function_name    = "${replace(var.domain_name, ".", "-")}-api"
 }
 
@@ -244,6 +245,22 @@ resource "aws_iam_role_policy" "lambda_dynamodb" {
   })
 }
 
+resource "aws_iam_role_policy" "lambda_costexplorer" {
+  name = "${var.domain_name}-lambda-costexplorer"
+  role = aws_iam_role.lambda_role.id
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [{
+      Effect = "Allow"
+      Action = [
+        "ce:GetCostAndUsage",
+        "ce:GetCostForecast"
+      ]
+      Resource = "*"
+    }]
+  })
+}
+
 data "archive_file" "lambda_placeholder" {
   type        = "zip"
   output_path = "${path.module}/placeholder.zip"
@@ -347,6 +364,12 @@ resource "aws_apigatewayv2_route" "auth" {
   target    = "integrations/${aws_apigatewayv2_integration.api.id}"
 }
 
+resource "aws_apigatewayv2_route" "billing" {
+  api_id    = aws_apigatewayv2_api.api.id
+  route_key = "GET /billing"
+  target    = "integrations/${aws_apigatewayv2_integration.api.id}"
+}
+
 resource "aws_lambda_permission" "api_gateway" {
   statement_id  = "AllowAPIGatewayInvoke"
   action        = "lambda:InvokeFunction"
@@ -379,6 +402,49 @@ resource "aws_cloudfront_origin_access_control" "website" {
   signing_protocol                  = "sigv4"
 }
 
+resource "aws_cloudfront_function" "api_rewrite" {
+  name    = "${replace(var.domain_name, ".", "-")}-api-rewrite"
+  runtime = "cloudfront-js-2.0"
+  publish = true
+  code    = <<-EOF
+    function handler(event) {
+      var request = event.request;
+      request.uri = request.uri.replace(/^\/api/, '');
+      if (request.uri === '') request.uri = '/';
+      return request;
+    }
+  EOF
+}
+
+resource "aws_cloudfront_origin_request_policy" "api_geo" {
+  name = "${replace(var.domain_name, ".", "-")}-api-geo-headers"
+
+  cookies_config {
+    cookie_behavior = "none"
+  }
+
+  headers_config {
+    header_behavior = "whitelist"
+    headers {
+      items = [
+        "CloudFront-Viewer-Country",
+        "CloudFront-Viewer-Country-Region-Name",
+        "CloudFront-Viewer-City",
+        "CloudFront-Viewer-Postal-Code",
+        "CloudFront-Viewer-Time-Zone",
+        "CloudFront-Viewer-Latitude",
+        "CloudFront-Viewer-Longitude",
+        "Origin",
+        "Referer"
+      ]
+    }
+  }
+
+  query_strings_config {
+    query_string_behavior = "none"
+  }
+}
+
 resource "aws_cloudfront_distribution" "website" {
   enabled             = true
   is_ipv6_enabled     = true
@@ -390,6 +456,35 @@ resource "aws_cloudfront_distribution" "website" {
     domain_name              = aws_s3_bucket.website.bucket_regional_domain_name
     origin_id                = local.s3_origin_id
     origin_access_control_id = aws_cloudfront_origin_access_control.website.id
+  }
+
+  origin {
+    domain_name = replace(aws_apigatewayv2_api.api.api_endpoint, "https://", "")
+    origin_id   = local.api_origin_id
+
+    custom_origin_config {
+      http_port              = 80
+      https_port             = 443
+      origin_protocol_policy = "https-only"
+      origin_ssl_protocols   = ["TLSv1.2"]
+    }
+  }
+
+  ordered_cache_behavior {
+    path_pattern           = "/api/*"
+    allowed_methods        = ["DELETE", "GET", "HEAD", "OPTIONS", "PATCH", "POST", "PUT"]
+    cached_methods         = ["GET", "HEAD"]
+    target_origin_id       = local.api_origin_id
+    viewer_protocol_policy = "redirect-to-https"
+    compress               = true
+
+    cache_policy_id          = "4135ea2d-6df8-44a3-9df3-4b5a84be39ad"
+    origin_request_policy_id = aws_cloudfront_origin_request_policy.api_geo.id
+
+    function_association {
+      event_type   = "viewer-request"
+      function_arn = aws_cloudfront_function.api_rewrite.arn
+    }
   }
 
   default_cache_behavior {

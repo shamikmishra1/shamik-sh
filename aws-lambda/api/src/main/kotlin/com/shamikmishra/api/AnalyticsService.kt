@@ -7,6 +7,8 @@ import software.amazon.awssdk.services.dynamodb.model.QueryRequest
 import software.amazon.awssdk.services.dynamodb.model.UpdateItemRequest
 import java.security.MessageDigest
 import java.time.LocalDate
+import java.time.ZoneId
+import java.time.ZonedDateTime
 import java.time.format.DateTimeFormatter
 
 @Serializable
@@ -20,6 +22,9 @@ data class TrackEvent(
 data class DailyStats(val date: String, val views: Long, val uniqueVisitors: Long)
 
 @Serializable
+data class DailyBreakdown(val date: String, val items: List<ItemCount>)
+
+@Serializable
 data class ItemCount(val name: String, val count: Long)
 
 @Serializable
@@ -31,14 +36,28 @@ data class StatsResponse(
     val dailyStats: List<DailyStats>,
     val topCommands: List<ItemCount>,
     val countries: List<ItemCount>,
+    val countriesByDay: List<DailyBreakdown>,
+    val cities: List<ItemCount>,
+    val citiesByDay: List<DailyBreakdown>,
+    val regions: List<ItemCount>,
+    val timezones: List<ItemCount>,
+    val hourOfDay: List<ItemCount>,
+    val dayOfWeek: List<ItemCount>,
     val devices: List<ItemCount>,
     val browsers: List<ItemCount>,
     val os: List<ItemCount>,
-    val referrers: List<ItemCount>
+    val referrers: List<ItemCount>,
+    val referrersByDay: List<DailyBreakdown>
 )
 
 data class VisitorInfo(
     val country: String?,
+    val region: String?,
+    val city: String?,
+    val postalCode: String?,
+    val timezone: String?,
+    val latitude: String?,
+    val longitude: String?,
     val device: String?,
     val browser: String?,
     val os: String?,
@@ -58,6 +77,8 @@ object AnalyticsService {
 
     fun track(event: TrackEvent, info: VisitorInfo) {
         val today = LocalDate.now().format(DateTimeFormatter.ISO_LOCAL_DATE)
+        val hour = ZonedDateTime.now(ZoneId.of("UTC")).hour.toString().padStart(2, '0')
+        val dayOfWeek = LocalDate.now().dayOfWeek.name
         val isPageView = event.command == null
 
         if (isPageView) {
@@ -70,7 +91,20 @@ object AnalyticsService {
 
             info.country?.takeIf { it.isNotBlank() && it.length == 2 }?.let {
                 incrementCounter("COUNTRY", it.uppercase(), "count")
+                incrementCounter("COUNTRY#$today", it.uppercase(), "count")
             }
+            info.city?.takeIf { it.isNotBlank() }?.let {
+                incrementCounter("CITY", it, "count")
+                incrementCounter("CITY#$today", it, "count")
+            }
+            info.region?.takeIf { it.isNotBlank() }?.let {
+                incrementCounter("REGION", it, "count")
+            }
+            info.timezone?.takeIf { it.isNotBlank() }?.let {
+                incrementCounter("TIMEZONE", it, "count")
+            }
+            incrementCounter("HOUR", hour, "count")
+            incrementCounter("DAYOFWEEK", dayOfWeek, "count")
             info.device?.takeIf { it.isNotBlank() }?.let {
                 incrementCounter("DEVICE", it, "count")
             }
@@ -82,7 +116,10 @@ object AnalyticsService {
             }
             info.referrer?.takeIf { it.isNotBlank() }?.let { ref ->
                 val domain = extractDomain(ref)
-                if (domain != null) incrementCounter("REFERRER", domain, "count")
+                if (domain != null) {
+                    incrementCounter("REFERRER", domain, "count")
+                    incrementCounter("REFERRER#$today", domain, "count")
+                }
             }
         } else {
             incrementCounter("CMD", event.command!!, "count")
@@ -90,6 +127,7 @@ object AnalyticsService {
     }
 
     private fun trackUniqueVisitor(ipHash: String, date: String) {
+        // Track daily unique visitor
         try {
             client.updateItem(UpdateItemRequest.builder()
                 .tableName(tableName)
@@ -100,9 +138,23 @@ object AnalyticsService {
                 .expressionAttributeValues(mapOf(":v" to AttributeValue.builder().bool(true).build()))
                 .build())
             incrementCounter("UNIQUE", "DATE#$date", "count")
-            incrementCounter("TOTAL", "UNIQUE", "count")
         } catch (e: Exception) {
             // Visitor already tracked today
+        }
+
+        // Track all-time unique visitor (separate from daily)
+        try {
+            client.updateItem(UpdateItemRequest.builder()
+                .tableName(tableName)
+                .key(mapOf("pk" to attr("VISITOR#ALL"), "sk" to attr(ipHash)))
+                .updateExpression("SET #v = :v")
+                .conditionExpression("attribute_not_exists(pk)")
+                .expressionAttributeNames(mapOf("#v" to "visited"))
+                .expressionAttributeValues(mapOf(":v" to AttributeValue.builder().bool(true).build()))
+                .build())
+            incrementCounter("TOTAL", "UNIQUE", "count")
+        } catch (e: Exception) {
+            // Visitor already tracked all-time
         }
     }
 
@@ -127,6 +179,7 @@ object AnalyticsService {
 
     fun getStats(): StatsResponse {
         val today = LocalDate.now().format(DateTimeFormatter.ISO_LOCAL_DATE)
+        val last7Days = (0..6).map { LocalDate.now().minusDays(it.toLong()).format(DateTimeFormatter.ISO_LOCAL_DATE) }
 
         return StatsResponse(
             totalViews = getTotalViews(),
@@ -136,10 +189,18 @@ object AnalyticsService {
             dailyStats = getLast7DaysStats(),
             topCommands = getTopItems("CMD"),
             countries = getTopItems("COUNTRY"),
+            countriesByDay = last7Days.map { date -> DailyBreakdown(date, getTopItems("COUNTRY#$date")) },
+            cities = getTopItems("CITY"),
+            citiesByDay = last7Days.map { date -> DailyBreakdown(date, getTopItems("CITY#$date")) },
+            regions = getTopItems("REGION"),
+            timezones = getTopItems("TIMEZONE"),
+            hourOfDay = getTopItems("HOUR", 24),
+            dayOfWeek = getTopItems("DAYOFWEEK", 7),
             devices = getTopItems("DEVICE"),
             browsers = getTopItems("BROWSER"),
             os = getTopItems("OS"),
-            referrers = getTopItems("REFERRER")
+            referrers = getTopItems("REFERRER"),
+            referrersByDay = last7Days.map { date -> DailyBreakdown(date, getTopItems("REFERRER#$date")) }
         )
     }
 
@@ -185,7 +246,7 @@ object AnalyticsService {
         }.reversed()
     }
 
-    private fun getTopItems(pk: String): List<ItemCount> {
+    private fun getTopItems(pk: String, limit: Int = 10): List<ItemCount> {
         val response = client.query(QueryRequest.builder()
             .tableName(tableName)
             .keyConditionExpression("pk = :pk")
@@ -199,7 +260,7 @@ object AnalyticsService {
                 ItemCount(sk, count)
             }
             .sortedByDescending { it.count }
-            .take(10)
+            .take(limit)
     }
 
     private fun attr(value: String) = AttributeValue.builder().s(value).build()

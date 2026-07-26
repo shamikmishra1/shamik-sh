@@ -13,6 +13,11 @@ interface ItemCount {
   count: number
 }
 
+interface DailyBreakdown {
+  date: string
+  items: ItemCount[]
+}
+
 interface Stats {
   totalViews: number
   totalUniqueVisitors: number
@@ -21,10 +26,31 @@ interface Stats {
   dailyStats: DailyStats[]
   topCommands: ItemCount[]
   countries: ItemCount[]
+  countriesByDay: DailyBreakdown[]
+  cities: ItemCount[]
+  citiesByDay: DailyBreakdown[]
+  regions: ItemCount[]
+  timezones: ItemCount[]
+  hourOfDay: ItemCount[]
+  dayOfWeek: ItemCount[]
   devices: ItemCount[]
   browsers: ItemCount[]
   os: ItemCount[]
   referrers: ItemCount[]
+  referrersByDay: DailyBreakdown[]
+}
+
+interface ServiceCost {
+  service: string
+  amount: number
+}
+
+interface Billing {
+  currentMonth: string
+  totalCost: number
+  forecastedCost: number | null
+  serviceBreakdown: ServiceCost[]
+  lastUpdated: string
 }
 
 const COUNTRY_FLAGS: Record<string, string> = {
@@ -40,6 +66,12 @@ const BROWSER_ICONS: Record<string, string> = {
 
 const OS_ICONS: Record<string, string> = {
   'Windows': '🪟', 'macOS': '🍎', 'iOS': '📱', 'Android': '🤖', 'Linux': '🐧', 'Other': '❓'
+}
+
+const DAY_ORDER = ['MONDAY', 'TUESDAY', 'WEDNESDAY', 'THURSDAY', 'FRIDAY', 'SATURDAY', 'SUNDAY']
+const DAY_SHORT: Record<string, string> = {
+  'MONDAY': 'Mon', 'TUESDAY': 'Tue', 'WEDNESDAY': 'Wed', 'THURSDAY': 'Thu',
+  'FRIDAY': 'Fri', 'SATURDAY': 'Sat', 'SUNDAY': 'Sun'
 }
 
 function LoginForm({ onLogin, error }: { onLogin: (password: string) => void; error: string | null }) {
@@ -105,14 +137,48 @@ function ItemList({ title, items, iconMap }: { title: string; items: ItemCount[]
   )
 }
 
-function Dashboard({ stats, onLogout }: { stats: Stats; onLogout: () => void }) {
+function BillingCard({ billing }: { billing: Billing | null }) {
+  if (!billing) return null
+
+  const updatedTime = billing.lastUpdated ? new Date(billing.lastUpdated).toLocaleTimeString() : ''
+
+  return (
+    <div style={styles.billingCard}>
+      <div style={styles.billingHeader}>
+        <span style={styles.billingTitle}>💰 AWS Bill ({billing.currentMonth})</span>
+        <span style={styles.billingUpdated}>Updated {updatedTime}</span>
+      </div>
+      <div style={styles.billingAmount}>
+        ${billing.totalCost.toFixed(2)}
+        {billing.forecastedCost && (
+          <span style={styles.billingForecast}> → ${billing.forecastedCost.toFixed(2)} est.</span>
+        )}
+      </div>
+      <div style={styles.billingServices}>
+        {billing.serviceBreakdown.slice(0, 5).map((s) => (
+          <div key={s.service} style={styles.billingServiceRow}>
+            <span style={styles.billingServiceName}>{s.service.replace('Amazon ', '').replace('AWS ', '')}</span>
+            <span style={styles.billingServiceCost}>${s.amount.toFixed(2)}</span>
+          </div>
+        ))}
+      </div>
+    </div>
+  )
+}
+
+function Dashboard({ stats, billing, onLogout }: { stats: Stats; billing: Billing | null; onLogout: () => void }) {
   const maxViews = Math.max(...stats.dailyStats.map(d => d.views), 1)
+  const sortedHours = [...stats.hourOfDay].sort((a, b) => parseInt(a.name) - parseInt(b.name))
+  const sortedDays = [...stats.dayOfWeek].sort((a, b) => DAY_ORDER.indexOf(a.name) - DAY_ORDER.indexOf(b.name))
 
   return (
     <div style={styles.dashboard}>
       <div style={styles.header}>
         <h1 style={styles.title}>shamikmishra.com</h1>
-        <button onClick={onLogout} style={styles.logoutButton}>Logout</button>
+        <div style={styles.headerRight}>
+          <BillingCard billing={billing} />
+          <button onClick={onLogout} style={styles.logoutButton}>Logout</button>
+        </div>
       </div>
 
       <div style={styles.statsGrid}>
@@ -135,9 +201,46 @@ function Dashboard({ stats, onLogout }: { stats: Stats; onLogout: () => void }) 
         </div>
       </div>
 
+      <div style={styles.gridTwo}>
+        <div style={styles.section}>
+          <h2 style={styles.sectionTitle}>Hour of Day (UTC)</h2>
+          <div style={styles.hourChart}>
+            {sortedHours.map((h) => {
+              const maxHour = Math.max(...stats.hourOfDay.map(x => x.count), 1)
+              return (
+                <div key={h.name} style={styles.hourBar}>
+                  <div style={{ ...styles.hourFill, height: `${(h.count / maxHour) * 100}%` }} />
+                  <div style={styles.hourLabel}>{h.name}</div>
+                </div>
+              )
+            })}
+          </div>
+        </div>
+        <div style={styles.section}>
+          <h2 style={styles.sectionTitle}>Day of Week</h2>
+          <div style={styles.hourChart}>
+            {sortedDays.map((d) => {
+              const maxDay = Math.max(...stats.dayOfWeek.map(x => x.count), 1)
+              return (
+                <div key={d.name} style={styles.hourBar}>
+                  <div style={{ ...styles.hourFill, height: `${(d.count / maxDay) * 100}%` }} />
+                  <div style={styles.hourLabel}>{DAY_SHORT[d.name] || d.name}</div>
+                </div>
+              )
+            })}
+          </div>
+        </div>
+      </div>
+
       <div style={styles.gridThree}>
         <ItemList title="Commands" items={stats.topCommands} />
         <ItemList title="Countries" items={stats.countries.map(c => ({ ...c, name: `${COUNTRY_FLAGS[c.name] || '🌍'} ${c.name}` }))} />
+        <ItemList title="Cities" items={stats.cities} />
+      </div>
+
+      <div style={styles.gridThree}>
+        <ItemList title="Regions" items={stats.regions} />
+        <ItemList title="Timezones" items={stats.timezones} />
         <ItemList title="Referrers" items={stats.referrers} />
       </div>
 
@@ -153,6 +256,7 @@ function Dashboard({ stats, onLogout }: { stats: Stats; onLogout: () => void }) 
 function App() {
   const [authenticated, setAuthenticated] = useState(false)
   const [stats, setStats] = useState<Stats | null>(null)
+  const [billing, setBilling] = useState<Billing | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
 
@@ -169,6 +273,7 @@ function App() {
         setAuthenticated(true)
         localStorage.setItem('admin_auth', password)
         await fetchStats()
+        await fetchBilling()
       } else {
         setError('Invalid password')
       }
@@ -180,6 +285,7 @@ function App() {
   const handleLogout = () => {
     setAuthenticated(false)
     setStats(null)
+    setBilling(null)
     localStorage.removeItem('admin_auth')
   }
 
@@ -194,6 +300,18 @@ function App() {
     }
   }
 
+  const fetchBilling = async () => {
+    try {
+      const response = await fetch(`${API_URL}/billing`)
+      if (response.ok) {
+        const data = await response.json()
+        setBilling(data)
+      }
+    } catch {
+      // Billing is optional, don't show error
+    }
+  }
+
   useEffect(() => {
     const savedPassword = localStorage.getItem('admin_auth')
     if (savedPassword) {
@@ -205,8 +323,12 @@ function App() {
 
   useEffect(() => {
     if (authenticated) {
-      const interval = setInterval(fetchStats, 30000)
-      return () => clearInterval(interval)
+      const statsInterval = setInterval(fetchStats, 30000)
+      const billingInterval = setInterval(fetchBilling, 300000)
+      return () => {
+        clearInterval(statsInterval)
+        clearInterval(billingInterval)
+      }
     }
   }, [authenticated])
 
@@ -214,7 +336,7 @@ function App() {
   if (!authenticated) return <LoginForm onLogin={handleLogin} error={error} />
   if (!stats) return <div style={styles.loading}>Loading stats...</div>
 
-  return <Dashboard stats={stats} onLogout={handleLogout} />
+  return <Dashboard stats={stats} billing={billing} onLogout={handleLogout} />
 }
 
 const styles: Record<string, React.CSSProperties> = {
@@ -274,8 +396,13 @@ const styles: Record<string, React.CSSProperties> = {
   header: {
     display: 'flex',
     justifyContent: 'space-between',
-    alignItems: 'center',
+    alignItems: 'flex-start',
     marginBottom: '32px',
+  },
+  headerRight: {
+    display: 'flex',
+    alignItems: 'flex-start',
+    gap: '16px',
   },
   title: {
     fontSize: '24px',
@@ -288,6 +415,59 @@ const styles: Record<string, React.CSSProperties> = {
     background: 'transparent',
     color: '#888',
     cursor: 'pointer',
+  },
+  billingCard: {
+    background: '#1a1a1a',
+    padding: '12px 16px',
+    borderRadius: '8px',
+    minWidth: '200px',
+  },
+  billingHeader: {
+    display: 'flex',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: '4px',
+  },
+  billingTitle: {
+    fontSize: '11px',
+    color: '#888',
+    textTransform: 'uppercase',
+    letterSpacing: '0.5px',
+  },
+  billingUpdated: {
+    fontSize: '9px',
+    color: '#555',
+  },
+  billingAmount: {
+    fontSize: '20px',
+    fontWeight: 'bold',
+    color: '#10b981',
+    marginBottom: '8px',
+  },
+  billingForecast: {
+    fontSize: '12px',
+    color: '#888',
+    fontWeight: 'normal',
+  },
+  billingServices: {
+    borderTop: '1px solid #333',
+    paddingTop: '8px',
+  },
+  billingServiceRow: {
+    display: 'flex',
+    justifyContent: 'space-between',
+    fontSize: '10px',
+    color: '#888',
+    marginBottom: '2px',
+  },
+  billingServiceName: {
+    maxWidth: '140px',
+    overflow: 'hidden',
+    textOverflow: 'ellipsis',
+    whiteSpace: 'nowrap',
+  },
+  billingServiceCost: {
+    fontFamily: 'monospace',
   },
   statsGrid: {
     display: 'grid',
@@ -358,6 +538,40 @@ const styles: Record<string, React.CSSProperties> = {
     gridTemplateColumns: 'repeat(3, 1fr)',
     gap: '16px',
     marginBottom: '24px',
+  },
+  gridTwo: {
+    display: 'grid',
+    gridTemplateColumns: 'repeat(2, 1fr)',
+    gap: '16px',
+    marginBottom: '24px',
+  },
+  hourChart: {
+    display: 'flex',
+    alignItems: 'flex-end',
+    gap: '2px',
+    height: '100px',
+    background: '#1a1a1a',
+    padding: '16px',
+    borderRadius: '12px',
+  },
+  hourBar: {
+    flex: 1,
+    display: 'flex',
+    flexDirection: 'column',
+    alignItems: 'center',
+    height: '100%',
+  },
+  hourFill: {
+    width: '100%',
+    background: '#3b82f6',
+    borderRadius: '2px 2px 0 0',
+    marginTop: 'auto',
+    minHeight: '2px',
+  },
+  hourLabel: {
+    fontSize: '8px',
+    color: '#666',
+    marginTop: '4px',
   },
   list: {
     background: '#1a1a1a',

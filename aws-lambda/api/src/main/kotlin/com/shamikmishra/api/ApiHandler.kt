@@ -29,6 +29,7 @@ class ApiHandler : RequestHandler<APIGatewayV2HTTPEvent, APIGatewayV2HTTPRespons
             path == "/reading" -> readingResponse()
             path == "/track" && method == "POST" -> trackResponse(input)
             path == "/stats" -> statsResponse()
+            path == "/billing" -> billingResponse()
             path == "/auth" && method == "POST" -> authResponse(input)
             else -> notFoundResponse(path)
         }
@@ -77,6 +78,18 @@ class ApiHandler : RequestHandler<APIGatewayV2HTTPEvent, APIGatewayV2HTTPRespons
         return VisitorInfo(
             country = headers["cloudfront-viewer-country"]
                 ?: headers["CloudFront-Viewer-Country"],
+            region = headers["cloudfront-viewer-country-region-name"]
+                ?: headers["CloudFront-Viewer-Country-Region-Name"],
+            city = headers["cloudfront-viewer-city"]
+                ?: headers["CloudFront-Viewer-City"],
+            postalCode = headers["cloudfront-viewer-postal-code"]
+                ?: headers["CloudFront-Viewer-Postal-Code"],
+            timezone = headers["cloudfront-viewer-time-zone"]
+                ?: headers["CloudFront-Viewer-Time-Zone"],
+            latitude = headers["cloudfront-viewer-latitude"]
+                ?: headers["CloudFront-Viewer-Latitude"],
+            longitude = headers["cloudfront-viewer-longitude"]
+                ?: headers["CloudFront-Viewer-Longitude"],
             device = parseDevice(userAgent),
             browser = parseBrowser(userAgent),
             os = parseOS(userAgent),
@@ -138,6 +151,16 @@ class ApiHandler : RequestHandler<APIGatewayV2HTTPEvent, APIGatewayV2HTTPRespons
         } catch (e: Exception) {
             logger.error(e) { "Failed to get stats" }
             errorResponse("Failed to get stats: ${e.message}")
+        }
+    }
+
+    private fun billingResponse(): APIGatewayV2HTTPResponse {
+        return try {
+            val billing = BillingService.getBilling()
+            jsonResponse(billing)
+        } catch (e: Exception) {
+            logger.error(e) { "Failed to get billing" }
+            errorResponse("Failed to get billing: ${e.message}")
         }
     }
 

@@ -4,6 +4,7 @@ import { projects } from './projects';
 import { contact, socials } from './contact';
 import { easterEggs } from './easterEggs';
 import { travel } from './travel';
+import { timeline } from './timeline';
 import { matrix } from './matrix';
 import { surprise } from './surprise';
 import { ThemeName } from '../styles/theme';
@@ -63,6 +64,7 @@ const commands: Record<string, CommandHandler> = {
   music: () => fetchNowPlaying(),
   reading: () => fetchReading(),
   travel,
+  timeline,
   matrix,
   surprise,
   blog: () => `Coming soon... check back later!`,

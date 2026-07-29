@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import styled from 'styled-components';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
-import { destinations, Country, Place } from '../data/travel';
+import { destinations, Place, CountryData, getStats } from '../data/travel';
 
 const MapContainer = styled.div`
   width: 100%;
@@ -99,21 +99,21 @@ const Instructions = styled.div`
   font-size: 0.9em;
 `;
 
+interface SelectedPlace {
+  year: number;
+  countryKey: string;
+  country: CountryData;
+  placeKey: string;
+  place: Place;
+}
+
 export function TravelMap() {
   const mapRef = useRef<HTMLDivElement>(null);
   const mapInstanceRef = useRef<L.Map | null>(null);
-  const [selectedPlace, setSelectedPlace] = useState<{
-    country: Country;
-    place: Place;
-    countryKey: string;
-    placeKey: string;
-  } | null>(null);
+  const [selectedPlace, setSelectedPlace] = useState<SelectedPlace | null>(null);
   const [photoIndex, setPhotoIndex] = useState(0);
 
-  const countryCount = Object.keys(destinations).length;
-  const placeCount = Object.values(destinations).reduce(
-    (sum, c) => sum + Object.keys(c.places).length, 0
-  );
+  const { countryCount, placeCount } = getStats();
 
   useEffect(() => {
     if (!mapRef.current || mapInstanceRef.current) return;
@@ -137,18 +137,21 @@ export function TravelMap() {
       popupAnchor: [0, -36]
     });
 
-    Object.entries(destinations).forEach(([countryKey, country]) => {
-      Object.entries(country.places).forEach(([placeKey, place]) => {
-        const marker = L.marker(place.coords, { icon: pinIcon }).addTo(map);
+    Object.entries(destinations).forEach(([yearStr, yearData]) => {
+      const year = parseInt(yearStr);
+      Object.entries(yearData).forEach(([countryKey, country]) => {
+        Object.entries(country.places).forEach(([placeKey, place]) => {
+          const marker = L.marker(place.coords, { icon: pinIcon }).addTo(map);
 
-        marker.bindTooltip(`${country.flag} ${place.name}`, {
-          permanent: false,
-          direction: 'top'
-        });
+          marker.bindTooltip(`${country.flag} ${place.name}`, {
+            permanent: false,
+            direction: 'top'
+          });
 
-        marker.on('click', () => {
-          setSelectedPlace({ country, place, countryKey, placeKey });
-          setPhotoIndex(0);
+          marker.on('click', () => {
+            setSelectedPlace({ year, countryKey, country, placeKey, place });
+            setPhotoIndex(0);
+          });
         });
       });
     });
@@ -178,7 +181,7 @@ export function TravelMap() {
         <PlaceCard>
           <GalleryContainer>
             <PlaceImage
-              src={`/travel/${selectedPlace.countryKey}/${selectedPlace.placeKey}/${selectedPlace.place.photos[photoIndex]}`}
+              src={`/travel/${selectedPlace.year}/${selectedPlace.countryKey}/${selectedPlace.placeKey}/${selectedPlace.place.photos[photoIndex]}`}
               alt={selectedPlace.place.name}
             />
             {selectedPlace.place.photos.length > 1 && (
@@ -203,9 +206,7 @@ export function TravelMap() {
           <PlaceTitle>
             {selectedPlace.country.flag} {selectedPlace.place.name}, {selectedPlace.country.name}
           </PlaceTitle>
-          {selectedPlace.place.date && (
-            <PlaceDate>{selectedPlace.place.date}</PlaceDate>
-          )}
+          <PlaceDate>{selectedPlace.year}</PlaceDate>
           <PlaceDescription>{selectedPlace.place.description}</PlaceDescription>
         </PlaceCard>
       ) : (

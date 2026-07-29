@@ -2,6 +2,7 @@ import { useRef, useEffect, useState, lazy, Suspense } from 'react';
 import styled, { keyframes, css } from 'styled-components';
 
 const TravelMap = lazy(() => import('./TravelMap').then(m => ({ default: m.TravelMap })));
+const Timeline = lazy(() => import('./Timeline').then(m => ({ default: m.Timeline })));
 
 const glitch = keyframes`
   0% { transform: translate(0); }
@@ -300,6 +301,14 @@ function renderResult(result: string) {
     );
   }
 
+  if (result === '<timeline>') {
+    return (
+      <Suspense fallback={<Result>Loading timeline...</Result>}>
+        <Timeline />
+      </Suspense>
+    );
+  }
+
   const glitchMatch = result.match(/^<glitch>(.+)<\/glitch>$/);
   if (glitchMatch) {
     const frames = glitchMatch[1].split('|');
@@ -410,7 +419,7 @@ export function Terminal({ output, onCommand, onNavigateHistory }: TerminalProps
   );
 }
 
-const COMMANDS = ['help', 'about', 'projects', 'socials', 'blog', 'themes', 'clear', 'welcome', 'echo', 'pwd', 'music', 'reading', 'travel', 'matrix', 'whoami'];
+const COMMANDS = ['help', 'about', 'projects', 'socials', 'blog', 'themes', 'clear', 'welcome', 'echo', 'pwd', 'music', 'reading', 'travel', 'timeline', 'matrix', 'whoami'];
 
 function autocomplete(input: string): string | null {
   if (!input) return null;

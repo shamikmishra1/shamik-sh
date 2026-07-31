@@ -422,33 +422,42 @@ resource "aws_cloudfront_function" "api_rewrite" {
   EOF
 }
 
-resource "aws_cloudfront_origin_request_policy" "api_geo" {
-  name = "${replace(var.domain_name, ".", "-")}-api-geo-headers"
+resource "aws_wafv2_web_acl" "website" {
+  provider    = aws.us_east_1
+  name        = "${replace(var.domain_name, ".", "-")}-website-waf"
+  scope       = "CLOUDFRONT"
+  description = "WAF for ${var.domain_name}"
 
-  cookies_config {
-    cookie_behavior = "none"
+  default_action {
+    allow {}
   }
 
-  headers_config {
-    header_behavior = "whitelist"
-    headers {
-      items = [
-        "CloudFront-Viewer-Country",
-        "CloudFront-Viewer-Country-Region-Name",
-        "CloudFront-Viewer-City",
-        "CloudFront-Viewer-Postal-Code",
-        "CloudFront-Viewer-Time-Zone",
-        "CloudFront-Viewer-Latitude",
-        "CloudFront-Viewer-Longitude",
-        "Origin",
-        "Referer"
-      ]
-    }
+  visibility_config {
+    cloudwatch_metrics_enabled = true
+    metric_name                = "${replace(var.domain_name, ".", "-")}-website-waf"
+    sampled_requests_enabled   = true
   }
 
-  query_strings_config {
-    query_string_behavior = "none"
+  tags = { Name = "${var.domain_name} Website WAF" }
+}
+
+resource "aws_wafv2_web_acl" "admin" {
+  provider    = aws.us_east_1
+  name        = "${replace(var.domain_name, ".", "-")}-admin-waf"
+  scope       = "CLOUDFRONT"
+  description = "WAF for admin.${var.domain_name}"
+
+  default_action {
+    allow {}
   }
+
+  visibility_config {
+    cloudwatch_metrics_enabled = true
+    metric_name                = "${replace(var.domain_name, ".", "-")}-admin-waf"
+    sampled_requests_enabled   = true
+  }
+
+  tags = { Name = "${var.domain_name} Admin WAF" }
 }
 
 resource "aws_cloudfront_distribution" "website" {
@@ -456,7 +465,7 @@ resource "aws_cloudfront_distribution" "website" {
   is_ipv6_enabled     = true
   default_root_object = "index.html"
   aliases             = [var.domain_name, "www.${var.domain_name}"]
-  price_class         = "PriceClass_100"
+  web_acl_id          = aws_wafv2_web_acl.website.arn
 
   origin {
     domain_name              = aws_s3_bucket.website.bucket_regional_domain_name
@@ -485,7 +494,7 @@ resource "aws_cloudfront_distribution" "website" {
     compress               = true
 
     cache_policy_id          = "4135ea2d-6df8-44a3-9df3-4b5a84be39ad"
-    origin_request_policy_id = aws_cloudfront_origin_request_policy.api_geo.id
+    origin_request_policy_id = "216adef6-5c7f-47e4-b989-5492eafa07d3"
 
     function_association {
       event_type   = "viewer-request"
@@ -499,13 +508,7 @@ resource "aws_cloudfront_distribution" "website" {
     target_origin_id       = local.s3_origin_id
     viewer_protocol_policy = "redirect-to-https"
     compress               = true
-    forwarded_values {
-      query_string = false
-      cookies { forward = "none" }
-    }
-    min_ttl     = 0
-    default_ttl = 3600
-    max_ttl     = 86400
+    cache_policy_id        = "658327ea-f89d-4fab-a63d-7e88639e58f6"
   }
 
   custom_error_response {
@@ -618,7 +621,7 @@ resource "aws_cloudfront_distribution" "admin" {
   is_ipv6_enabled     = true
   default_root_object = "index.html"
   aliases             = ["admin.${var.domain_name}"]
-  price_class         = "PriceClass_100"
+  web_acl_id          = aws_wafv2_web_acl.admin.arn
 
   origin {
     domain_name              = aws_s3_bucket.admin.bucket_regional_domain_name
@@ -632,13 +635,7 @@ resource "aws_cloudfront_distribution" "admin" {
     target_origin_id       = local.s3_admin_origin
     viewer_protocol_policy = "redirect-to-https"
     compress               = true
-    forwarded_values {
-      query_string = false
-      cookies { forward = "none" }
-    }
-    min_ttl     = 0
-    default_ttl = 3600
-    max_ttl     = 86400
+    cache_policy_id        = "658327ea-f89d-4fab-a63d-7e88639e58f6"
   }
 
   custom_error_response {

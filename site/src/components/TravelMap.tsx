@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import styled from 'styled-components';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
-import { destinations, Place, CountryData, getStats } from '../data/travel';
+import { destinations, Place, CountryData, getStats, getMonthName, getPhotoPath } from '../data/travel';
 
 const MapContainer = styled.div`
   width: 100%;
@@ -34,12 +34,22 @@ const GalleryContainer = styled.div`
   display: inline-block;
 `;
 
-const PlaceImage = styled.img`
+const mediaStyles = `
   max-width: 100%;
   max-height: 200px;
   border-radius: 8px;
   margin-bottom: 10px;
 `;
+
+const PlaceImage = styled.img`
+  ${mediaStyles}
+`;
+
+const PlaceVideo = styled.video`
+  ${mediaStyles}
+`;
+
+const isVideo = (filename: string) => /\.(mov|mp4|webm)$/i.test(filename);
 
 const GalleryNav = styled.button`
   position: absolute;
@@ -101,7 +111,7 @@ const Instructions = styled.div`
 
 interface SelectedPlace {
   year: number;
-  countryKey: string;
+  tripKey: string;
   country: CountryData;
   placeKey: string;
   place: Place;
@@ -139,7 +149,7 @@ export function TravelMap() {
 
     Object.entries(destinations).forEach(([yearStr, yearData]) => {
       const year = parseInt(yearStr);
-      Object.entries(yearData).forEach(([countryKey, country]) => {
+      Object.entries(yearData).forEach(([tripKey, country]) => {
         Object.entries(country.places).forEach(([placeKey, place]) => {
           const marker = L.marker(place.coords, { icon: pinIcon }).addTo(map);
 
@@ -149,7 +159,7 @@ export function TravelMap() {
           });
 
           marker.on('click', () => {
-            setSelectedPlace({ year, countryKey, country, placeKey, place });
+            setSelectedPlace({ year, tripKey, country, placeKey, place });
             setPhotoIndex(0);
           });
         });
@@ -179,35 +189,65 @@ export function TravelMap() {
       </div>
       {selectedPlace ? (
         <PlaceCard>
-          <GalleryContainer>
-            <PlaceImage
-              src={`/travel/${selectedPlace.year}/${selectedPlace.countryKey}/${selectedPlace.placeKey}/${selectedPlace.place.photos[photoIndex]}`}
-              alt={selectedPlace.place.name}
-            />
-            {selectedPlace.place.photos.length > 1 && (
-              <>
-                <PrevButton onClick={handlePrev} disabled={photoIndex === 0}>
-                  ‹
-                </PrevButton>
-                <NextButton
-                  onClick={handleNext}
-                  disabled={photoIndex === selectedPlace.place.photos.length - 1}
-                >
-                  ›
-                </NextButton>
-              </>
-            )}
-          </GalleryContainer>
-          {selectedPlace.place.photos.length > 1 && (
-            <PhotoCounter>
-              {photoIndex + 1} / {selectedPlace.place.photos.length}
-            </PhotoCounter>
+          {selectedPlace.place.photos.length > 0 && (
+            <>
+              <GalleryContainer>
+                {isVideo(selectedPlace.place.photos[photoIndex]) ? (
+                  <PlaceVideo
+                    src={getPhotoPath(
+                      selectedPlace.year,
+                      selectedPlace.country.month,
+                      selectedPlace.tripKey,
+                      selectedPlace.placeKey,
+                      selectedPlace.place.photos[photoIndex]
+                    )}
+                    autoPlay
+                    muted
+                    loop
+                    playsInline
+                    disablePictureInPicture
+                    onContextMenu={(e) => e.preventDefault()}
+                  />
+                ) : (
+                  <PlaceImage
+                    src={getPhotoPath(
+                      selectedPlace.year,
+                      selectedPlace.country.month,
+                      selectedPlace.tripKey,
+                      selectedPlace.placeKey,
+                      selectedPlace.place.photos[photoIndex]
+                    )}
+                    alt={selectedPlace.place.name}
+                  />
+                )}
+                {selectedPlace.place.photos.length > 1 && (
+                  <>
+                    <PrevButton onClick={handlePrev} disabled={photoIndex === 0}>
+                      ‹
+                    </PrevButton>
+                    <NextButton
+                      onClick={handleNext}
+                      disabled={photoIndex === selectedPlace.place.photos.length - 1}
+                    >
+                      ›
+                    </NextButton>
+                  </>
+                )}
+              </GalleryContainer>
+              {selectedPlace.place.photos.length > 1 && (
+                <PhotoCounter>
+                  {photoIndex + 1} / {selectedPlace.place.photos.length}
+                </PhotoCounter>
+              )}
+            </>
           )}
           <PlaceTitle>
             {selectedPlace.country.flag} {selectedPlace.place.name}, {selectedPlace.country.name}
           </PlaceTitle>
-          <PlaceDate>{selectedPlace.year}</PlaceDate>
-          <PlaceDescription>{selectedPlace.place.description}</PlaceDescription>
+          <PlaceDate>{getMonthName(selectedPlace.country.month)} {selectedPlace.year}</PlaceDate>
+          {selectedPlace.place.description && (
+            <PlaceDescription>{selectedPlace.place.description}</PlaceDescription>
+          )}
         </PlaceCard>
       ) : (
         <Instructions>Click a pin to see photos and stories</Instructions>

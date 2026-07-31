@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import styled from 'styled-components';
-import { destinations, Place, CountryData, getStats } from '../data/travel';
+import { destinations, Place, CountryData, getStats, getMonthName, getPhotoPath } from '../data/travel';
 
 const TimelineContainer = styled.div`
   padding: 10px 0;
@@ -81,7 +81,7 @@ const TripName = styled.span`
   font-weight: bold;
 `;
 
-const TripCountry = styled.span`
+const TripMeta = styled.span`
   opacity: 0.5;
   font-size: 0.85em;
   margin-left: auto;
@@ -150,7 +150,7 @@ const PhotoCounter = styled.div`
 
 interface SelectedTrip {
   year: number;
-  countryKey: string;
+  tripKey: string;
   country: CountryData;
   placeKey: string;
   place: Place;
@@ -163,11 +163,11 @@ export function Timeline() {
   const { countryCount, placeCount } = getStats();
   const years = Object.keys(destinations).map(Number).sort((a, b) => b - a);
 
-  const handleSelectTrip = (year: number, countryKey: string, country: CountryData, placeKey: string, place: Place) => {
-    if (selectedTrip?.year === year && selectedTrip?.placeKey === placeKey) {
+  const handleSelectTrip = (year: number, tripKey: string, country: CountryData, placeKey: string, place: Place) => {
+    if (selectedTrip?.year === year && selectedTrip?.tripKey === tripKey && selectedTrip?.placeKey === placeKey) {
       setSelectedTrip(null);
     } else {
-      setSelectedTrip({ year, countryKey, country, placeKey, place });
+      setSelectedTrip({ year, tripKey, country, placeKey, place });
       setPhotoIndex(0);
     }
   };
@@ -176,6 +176,10 @@ export function Timeline() {
   const handleNext = () => {
     if (!selectedTrip) return;
     setPhotoIndex(i => Math.min(selectedTrip.place.photos.length - 1, i + 1));
+  };
+
+  const getSortedTrips = (year: number) => {
+    return Object.entries(destinations[year]).sort(([, a], [, b]) => a.month - b.month);
   };
 
   return (
@@ -191,28 +195,28 @@ export function Timeline() {
             <YearLine />
           </YearHeader>
           <TripList>
-            {Object.entries(destinations[year]).map(([countryKey, country]) =>
+            {getSortedTrips(year).map(([tripKey, country]) =>
               Object.entries(country.places).map(([placeKey, place]) => {
-                const isSelected = selectedTrip?.year === year && selectedTrip?.placeKey === placeKey;
+                const isSelected = selectedTrip?.year === year && selectedTrip?.tripKey === tripKey && selectedTrip?.placeKey === placeKey;
                 return (
-                  <div key={`${countryKey}-${placeKey}`}>
+                  <div key={`${tripKey}-${placeKey}`}>
                     <TripItem
                       $selected={isSelected}
-                      onClick={() => handleSelectTrip(year, countryKey, country, placeKey, place)}
+                      onClick={() => handleSelectTrip(year, tripKey, country, placeKey, place)}
                     >
                       <TripHeader>
                         <TripFlag>{country.flag}</TripFlag>
                         <TripName>{place.name}</TripName>
-                        <TripCountry>{country.name}</TripCountry>
+                        <TripMeta>{getMonthName(country.month)} · {country.name}</TripMeta>
                       </TripHeader>
-                      <TripDescription>{place.description}</TripDescription>
+                      {place.description && <TripDescription>{place.description}</TripDescription>}
                     </TripItem>
 
-                    {isSelected && (
+                    {isSelected && place.photos.length > 0 && (
                       <PhotoSection>
                         <GalleryContainer>
                           <PlaceImage
-                            src={`/travel/${year}/${countryKey}/${placeKey}/${place.photos[photoIndex]}`}
+                            src={getPhotoPath(year, country.month, tripKey, placeKey, place.photos[photoIndex])}
                             alt={place.name}
                           />
                           {place.photos.length > 1 && (

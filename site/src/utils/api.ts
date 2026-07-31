@@ -1,4 +1,4 @@
-const API_URL = '/api';
+const API_URL = 'https://api.shamikmishra.com';
 
 export function trackPageView(page: string) {
   fetch(`${API_URL}/track`, {

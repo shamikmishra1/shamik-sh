@@ -271,14 +271,15 @@ data "archive_file" "lambda_placeholder" {
 }
 
 resource "aws_lambda_function" "api" {
-  function_name = local.function_name
-  role          = aws_iam_role.lambda_role.arn
-  handler       = "com.shamikmishra.api.ApiHandler::handleRequest"
-  runtime       = "java21"
-  timeout       = 30
-  memory_size   = 512
-  filename      = data.archive_file.lambda_placeholder.output_path
-  publish       = true
+  function_name                  = local.function_name
+  role                           = aws_iam_role.lambda_role.arn
+  handler                        = "com.shamikmishra.api.ApiHandler::handleRequest"
+  runtime                        = "java21"
+  timeout                        = 30
+  memory_size                    = 512
+  reserved_concurrent_executions = 10
+  filename                       = data.archive_file.lambda_placeholder.output_path
+  publish                        = true
 
   environment {
     variables = {
@@ -319,6 +320,11 @@ resource "aws_apigatewayv2_stage" "api" {
   api_id      = aws_apigatewayv2_api.api.id
   name        = "$default"
   auto_deploy = true
+
+  default_route_settings {
+    throttling_burst_limit = 50
+    throttling_rate_limit  = 20
+  }
 }
 
 resource "aws_apigatewayv2_integration" "api" {

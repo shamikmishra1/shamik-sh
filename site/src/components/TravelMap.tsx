@@ -123,7 +123,7 @@ export function TravelMap() {
   const [selectedPlace, setSelectedPlace] = useState<SelectedPlace | null>(null);
   const [photoIndex, setPhotoIndex] = useState(0);
 
-  const { countryCount, placeCount } = getStats();
+  const { countryCount } = getStats();
 
   useEffect(() => {
     if (!mapRef.current || mapInstanceRef.current) return;
@@ -185,7 +185,7 @@ export function TravelMap() {
     <div>
       <div style={{ position: 'relative' }}>
         <MapContainer ref={mapRef} />
-        <StatsOverlay>{countryCount} countries · {placeCount} places</StatsOverlay>
+        <StatsOverlay>{countryCount} countries</StatsOverlay>
       </div>
       {selectedPlace ? (
         <PlaceCard>

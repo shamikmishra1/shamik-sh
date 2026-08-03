@@ -39,6 +39,9 @@ const mediaStyles = `
   max-height: 350px;
   border-radius: 8px;
   margin-bottom: 10px;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
 `;
 
 const PlaceImage = styled.img`
@@ -312,6 +315,8 @@ export function TravelMap() {
                       currentVisit.place.photos[photoIndex]
                     )}
                     alt={currentVisit.place.name}
+                    draggable={false}
+                    onContextMenu={(e) => e.preventDefault()}
                   />
                 )}
                 {currentVisit.place.photos.length > 1 && (

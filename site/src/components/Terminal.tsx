@@ -3,6 +3,7 @@ import styled, { keyframes, css } from 'styled-components';
 
 const TravelMap = lazy(() => import('./TravelMap').then(m => ({ default: m.TravelMap })));
 const Timeline = lazy(() => import('./Timeline').then(m => ({ default: m.Timeline })));
+const TravelRandom = lazy(() => import('./TravelRandom').then(m => ({ default: m.TravelRandom })));
 
 const glitch = keyframes`
   0% { transform: translate(0); }
@@ -121,6 +122,27 @@ const ProfileImage = styled.img`
     width: 100px;
     height: 100px;
   }
+`;
+
+const TravelImage = styled.img`
+  max-width: 100%;
+  max-height: 350px;
+  border-radius: 8px;
+  margin-bottom: 12px;
+  object-fit: contain;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
+`;
+
+const TravelVideo = styled.video`
+  max-width: 100%;
+  max-height: 350px;
+  border-radius: 8px;
+  margin-bottom: 12px;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
 `;
 
 const InputLine = styled.div`
@@ -301,6 +323,14 @@ function renderResult(result: string) {
     );
   }
 
+  if (result === '<travel-random>') {
+    return (
+      <Suspense fallback={<Result>Loading...</Result>}>
+        <TravelRandom />
+      </Suspense>
+    );
+  }
+
   if (result === '<timeline>') {
     return (
       <Suspense fallback={<Result>Loading timeline...</Result>}>
@@ -323,13 +353,40 @@ function renderResult(result: string) {
     return <KonamiEffect />;
   }
 
+  const videoMatch = result.match(/^<video:([^>]+)>/);
+  if (videoMatch) {
+    const videoSrc = videoMatch[1];
+    const textContent = result.replace(/^<video:[^>]+>\n?/, '');
+    return (
+      <>
+        <TravelVideo
+          src={videoSrc}
+          autoPlay
+          muted
+          loop
+          playsInline
+          disablePictureInPicture
+          onContextMenu={(e) => e.preventDefault()}
+        />
+        <Result>{linkify(textContent)}</Result>
+      </>
+    );
+  }
+
   const imageMatch = result.match(/^<img:([^>]+)>/);
   if (imageMatch) {
     const imageSrc = imageMatch[1];
     const textContent = result.replace(/^<img:[^>]+>\n?/, '');
+    const isTravelImage = imageSrc.startsWith('/travel/');
+    const ImageComponent = isTravelImage ? TravelImage : ProfileImage;
     return (
       <>
-        <ProfileImage src={imageSrc} alt="Profile" />
+        <ImageComponent
+          src={imageSrc}
+          alt="Profile"
+          draggable={false}
+          onContextMenu={(e) => isTravelImage && e.preventDefault()}
+        />
         <Result>{linkify(textContent)}</Result>
       </>
     );
@@ -350,6 +407,24 @@ export function Terminal({ output, onCommand, onNavigateHistory }: TerminalProps
 
   useEffect(() => {
     inputRef.current?.focus();
+  }, []);
+
+  // Focus input and scroll to bottom when user starts typing anywhere
+  useEffect(() => {
+    const handleGlobalKeyDown = (e: KeyboardEvent) => {
+      // Ignore if already focused on input, or if it's a modifier key
+      if (document.activeElement === inputRef.current) return;
+      if (e.metaKey || e.ctrlKey || e.altKey) return;
+      if (e.key.length === 1 || e.key === 'Backspace') {
+        inputRef.current?.focus();
+        if (bodyRef.current) {
+          bodyRef.current.scrollTop = bodyRef.current.scrollHeight;
+        }
+      }
+    };
+
+    window.addEventListener('keydown', handleGlobalKeyDown);
+    return () => window.removeEventListener('keydown', handleGlobalKeyDown);
   }, []);
 
   const handleSubmit = (e: React.FormEvent) => {

@@ -179,7 +179,7 @@ export function Timeline() {
   };
 
   const getSortedTrips = (year: number) => {
-    return Object.entries(destinations[year]).sort(([, a], [, b]) => a.month - b.month);
+    return Object.entries(destinations[year]).sort(([, a], [, b]) => b.month - a.month);
   };
 
   return (

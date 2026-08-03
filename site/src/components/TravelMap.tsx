@@ -6,7 +6,7 @@ import { destinations, Place, CountryData, getStats, getMonthName, getPhotoPath 
 
 const MapContainer = styled.div`
   width: 100%;
-  height: 300px;
+  height: 450px;
   border-radius: 8px;
   margin: 10px 0;
   border: 1px solid ${({ theme }) => theme.colors.primary};
@@ -36,7 +36,7 @@ const GalleryContainer = styled.div`
 
 const mediaStyles = `
   max-width: 100%;
-  max-height: 200px;
+  max-height: 350px;
   border-radius: 8px;
   margin-bottom: 10px;
 `;
@@ -109,7 +109,29 @@ const Instructions = styled.div`
   font-size: 0.9em;
 `;
 
-interface SelectedPlace {
+const VisitSelector = styled.div`
+  display: flex;
+  gap: 8px;
+  margin-bottom: 10px;
+  flex-wrap: wrap;
+`;
+
+const VisitButton = styled.button<{ $active: boolean }>`
+  background: ${({ $active }) => $active ? 'rgba(0, 255, 0, 0.3)' : 'rgba(0, 0, 0, 0.4)'};
+  border: 1px solid ${({ $active }) => $active ? '#00ff00' : '#555'};
+  color: ${({ $active }) => $active ? '#00ff00' : '#aaa'};
+  padding: 4px 10px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 0.85em;
+
+  &:hover {
+    background: rgba(0, 255, 0, 0.2);
+    border-color: #00ff00;
+  }
+`;
+
+interface Visit {
   year: number;
   tripKey: string;
   country: CountryData;
@@ -117,13 +139,23 @@ interface SelectedPlace {
   place: Place;
 }
 
+interface LocationGroup {
+  coordKey: string;
+  coords: [number, number];
+  visits: Visit[];
+}
+
 export function TravelMap() {
   const mapRef = useRef<HTMLDivElement>(null);
   const mapInstanceRef = useRef<L.Map | null>(null);
-  const [selectedPlace, setSelectedPlace] = useState<SelectedPlace | null>(null);
+  const [selectedLocation, setSelectedLocation] = useState<LocationGroup | null>(null);
+  const [visitIndex, setVisitIndex] = useState(0);
   const [photoIndex, setPhotoIndex] = useState(0);
 
   const { countryCount } = getStats();
+
+  // Group all visits by coordinates
+  const locationGroups = useRef<Map<string, LocationGroup>>(new Map());
 
   useEffect(() => {
     if (!mapRef.current || mapInstanceRef.current) return;
@@ -147,22 +179,57 @@ export function TravelMap() {
       popupAnchor: [0, -36]
     });
 
+    // Build location groups
+    const groups = new Map<string, LocationGroup>();
+
     Object.entries(destinations).forEach(([yearStr, yearData]) => {
       const year = parseInt(yearStr);
       Object.entries(yearData).forEach(([tripKey, country]) => {
         Object.entries(country.places).forEach(([placeKey, place]) => {
-          const marker = L.marker(place.coords, { icon: pinIcon }).addTo(map);
+          const coordKey = `${place.coords[0]},${place.coords[1]}`;
 
-          marker.bindTooltip(`${country.flag} ${place.name}`, {
-            permanent: false,
-            direction: 'top'
-          });
+          if (!groups.has(coordKey)) {
+            groups.set(coordKey, {
+              coordKey,
+              coords: place.coords,
+              visits: []
+            });
+          }
 
-          marker.on('click', () => {
-            setSelectedPlace({ year, tripKey, country, placeKey, place });
-            setPhotoIndex(0);
+          groups.get(coordKey)!.visits.push({
+            year,
+            tripKey,
+            country,
+            placeKey,
+            place
           });
         });
+      });
+    });
+
+    // Sort visits by year (oldest first)
+    groups.forEach(group => {
+      group.visits.sort((a, b) => a.year - b.year);
+    });
+
+    locationGroups.current = groups;
+
+    // Create one marker per unique location
+    groups.forEach((group) => {
+      const marker = L.marker(group.coords, { icon: pinIcon }).addTo(map);
+
+      // Show first visit's info in tooltip
+      const firstVisit = group.visits[0];
+      const visitCount = group.visits.length > 1 ? ` (${group.visits.length} visits)` : '';
+      marker.bindTooltip(`${firstVisit.country.flag} ${firstVisit.place.name}${visitCount}`, {
+        permanent: false,
+        direction: 'top'
+      });
+
+      marker.on('click', () => {
+        setSelectedLocation(group);
+        setVisitIndex(0);
+        setPhotoIndex(0);
       });
     });
 
@@ -172,13 +239,20 @@ export function TravelMap() {
     };
   }, []);
 
+  const currentVisit = selectedLocation?.visits[visitIndex];
+
   const handlePrev = () => {
     setPhotoIndex(i => Math.max(0, i - 1));
   };
 
   const handleNext = () => {
-    if (!selectedPlace) return;
-    setPhotoIndex(i => Math.min(selectedPlace.place.photos.length - 1, i + 1));
+    if (!currentVisit) return;
+    setPhotoIndex(i => Math.min(currentVisit.place.photos.length - 1, i + 1));
+  };
+
+  const handleVisitChange = (index: number) => {
+    setVisitIndex(index);
+    setPhotoIndex(0);
   };
 
   return (
@@ -187,19 +261,39 @@ export function TravelMap() {
         <MapContainer ref={mapRef} />
         <StatsOverlay>{countryCount} countries</StatsOverlay>
       </div>
-      {selectedPlace ? (
+      {selectedLocation && currentVisit ? (
         <PlaceCard>
-          {selectedPlace.place.photos.length > 0 && (
+          {selectedLocation.visits.length > 1 && (
+            <VisitSelector>
+              {selectedLocation.visits.map((visit, idx) => (
+                <VisitButton
+                  key={`${visit.year}-${visit.tripKey}`}
+                  $active={idx === visitIndex}
+                  onClick={() => handleVisitChange(idx)}
+                >
+                  {getMonthName(visit.country.month)} {visit.year}
+                </VisitButton>
+              ))}
+            </VisitSelector>
+          )}
+          {currentVisit.place.photos.length > 0 && (
             <>
               <GalleryContainer>
-                {isVideo(selectedPlace.place.photos[photoIndex]) ? (
+                {isVideo(currentVisit.place.photos[photoIndex]) ? (
                   <PlaceVideo
+                    key={getPhotoPath(
+                      currentVisit.year,
+                      currentVisit.country.month,
+                      currentVisit.tripKey,
+                      currentVisit.placeKey,
+                      currentVisit.place.photos[photoIndex]
+                    )}
                     src={getPhotoPath(
-                      selectedPlace.year,
-                      selectedPlace.country.month,
-                      selectedPlace.tripKey,
-                      selectedPlace.placeKey,
-                      selectedPlace.place.photos[photoIndex]
+                      currentVisit.year,
+                      currentVisit.country.month,
+                      currentVisit.tripKey,
+                      currentVisit.placeKey,
+                      currentVisit.place.photos[photoIndex]
                     )}
                     autoPlay
                     muted
@@ -211,42 +305,42 @@ export function TravelMap() {
                 ) : (
                   <PlaceImage
                     src={getPhotoPath(
-                      selectedPlace.year,
-                      selectedPlace.country.month,
-                      selectedPlace.tripKey,
-                      selectedPlace.placeKey,
-                      selectedPlace.place.photos[photoIndex]
+                      currentVisit.year,
+                      currentVisit.country.month,
+                      currentVisit.tripKey,
+                      currentVisit.placeKey,
+                      currentVisit.place.photos[photoIndex]
                     )}
-                    alt={selectedPlace.place.name}
+                    alt={currentVisit.place.name}
                   />
                 )}
-                {selectedPlace.place.photos.length > 1 && (
+                {currentVisit.place.photos.length > 1 && (
                   <>
                     <PrevButton onClick={handlePrev} disabled={photoIndex === 0}>
                       ‹
                     </PrevButton>
                     <NextButton
                       onClick={handleNext}
-                      disabled={photoIndex === selectedPlace.place.photos.length - 1}
+                      disabled={photoIndex === currentVisit.place.photos.length - 1}
                     >
                       ›
                     </NextButton>
                   </>
                 )}
               </GalleryContainer>
-              {selectedPlace.place.photos.length > 1 && (
+              {currentVisit.place.photos.length > 1 && (
                 <PhotoCounter>
-                  {photoIndex + 1} / {selectedPlace.place.photos.length}
+                  {photoIndex + 1} / {currentVisit.place.photos.length}
                 </PhotoCounter>
               )}
             </>
           )}
           <PlaceTitle>
-            {selectedPlace.country.flag} {selectedPlace.place.name}, {selectedPlace.country.name}
+            {currentVisit.country.flag} {currentVisit.place.name}, {currentVisit.country.name}
           </PlaceTitle>
-          <PlaceDate>{getMonthName(selectedPlace.country.month)} {selectedPlace.year}</PlaceDate>
-          {selectedPlace.place.description && (
-            <PlaceDescription>{selectedPlace.place.description}</PlaceDescription>
+          <PlaceDate>{getMonthName(currentVisit.country.month)} {currentVisit.year}</PlaceDate>
+          {currentVisit.place.description && (
+            <PlaceDescription>{currentVisit.place.description}</PlaceDescription>
           )}
         </PlaceCard>
       ) : (

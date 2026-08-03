@@ -7,6 +7,6 @@ export function socials(): string {
 I avoid most social media - too many notifications, not enough silence.
 If you want to reach me, email works best. I actually read those.
 
-Email     shamik.mishra1@yahoo.in
+Email     contact@shamikmishra.com
 `;
 }

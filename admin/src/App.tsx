@@ -112,7 +112,7 @@ function LoginForm({ onLogin, error }: { onLogin: (password: string) => void; er
 function StatCard({ value, label }: { value: number; label: string }) {
   return (
     <div style={styles.statCard}>
-      <div style={styles.statValue}>{value.toLocaleString()}</div>
+      <div style={styles.statValue} className="stat-value">{value.toLocaleString()}</div>
       <div style={styles.statLabel}>{label}</div>
     </div>
   )
@@ -143,7 +143,7 @@ function BillingCard({ billing }: { billing: Billing | null }) {
   const updatedTime = billing.lastUpdated ? new Date(billing.lastUpdated).toLocaleTimeString() : ''
 
   return (
-    <div style={styles.billingCard}>
+    <div style={styles.billingCard} className="billing-card">
       <div style={styles.billingHeader}>
         <span style={styles.billingTitle}>💰 AWS Bill ({billing.currentMonth})</span>
         <span style={styles.billingUpdated}>Updated {updatedTime}</span>
@@ -172,16 +172,16 @@ function Dashboard({ stats, billing, onLogout }: { stats: Stats; billing: Billin
   const sortedDays = [...stats.dayOfWeek].sort((a, b) => DAY_ORDER.indexOf(a.name) - DAY_ORDER.indexOf(b.name))
 
   return (
-    <div style={styles.dashboard}>
-      <div style={styles.header}>
+    <div style={styles.dashboard} className="dashboard">
+      <div style={styles.header} className="header">
         <h1 style={styles.title}>shamikmishra.com</h1>
-        <div style={styles.headerRight}>
+        <div style={styles.headerRight} className="header-right">
           <BillingCard billing={billing} />
           <button onClick={onLogout} style={styles.logoutButton}>Logout</button>
         </div>
       </div>
 
-      <div style={styles.statsGrid}>
+      <div style={styles.statsGrid} className="stats-grid">
         <StatCard value={stats.totalViews} label="Total Views" />
         <StatCard value={stats.totalUniqueVisitors} label="Unique Visitors" />
         <StatCard value={stats.todayViews} label="Today Views" />
@@ -201,7 +201,7 @@ function Dashboard({ stats, billing, onLogout }: { stats: Stats; billing: Billin
         </div>
       </div>
 
-      <div style={styles.gridTwo}>
+      <div style={styles.gridTwo} className="grid-two">
         <div style={styles.section}>
           <h2 style={styles.sectionTitle}>Hour of Day (UTC)</h2>
           <div style={styles.hourChart}>
@@ -232,25 +232,45 @@ function Dashboard({ stats, billing, onLogout }: { stats: Stats; billing: Billin
         </div>
       </div>
 
-      <div style={styles.gridThree}>
+      <div style={styles.gridThree} className="grid-three">
         <ItemList title="Commands" items={stats.topCommands} />
         <ItemList title="Countries" items={stats.countries.map(c => ({ ...c, name: `${COUNTRY_FLAGS[c.name] || '🌍'} ${c.name}` }))} />
         <ItemList title="Cities" items={stats.cities} />
       </div>
 
-      <div style={styles.gridThree}>
+      <div style={styles.gridThree} className="grid-three">
         <ItemList title="Regions" items={stats.regions} />
         <ItemList title="Timezones" items={stats.timezones} />
         <ItemList title="Referrers" items={stats.referrers} />
       </div>
 
-      <div style={styles.gridThree}>
+      <div style={styles.gridThree} className="grid-three">
         <ItemList title="Devices" items={stats.devices} iconMap={{ mobile: '📱', tablet: '📱', desktop: '💻' }} />
         <ItemList title="Browsers" items={stats.browsers} iconMap={BROWSER_ICONS} />
         <ItemList title="OS" items={stats.os} iconMap={OS_ICONS} />
       </div>
     </div>
   )
+}
+
+// Inject responsive styles
+const injectStyles = () => {
+  if (document.getElementById('responsive-styles')) return
+  const style = document.createElement('style')
+  style.id = 'responsive-styles'
+  style.textContent = `
+    @media (max-width: 768px) {
+      .stats-grid { grid-template-columns: repeat(2, 1fr) !important; }
+      .grid-three { grid-template-columns: 1fr !important; }
+      .grid-two { grid-template-columns: 1fr !important; }
+      .dashboard { padding: 16px !important; }
+      .header { flex-direction: column !important; gap: 16px !important; }
+      .header-right { flex-direction: column !important; width: 100% !important; }
+      .billing-card { width: 100% !important; }
+      .stat-value { font-size: 28px !important; }
+    }
+  `
+  document.head.appendChild(style)
 }
 
 function App() {
@@ -313,6 +333,7 @@ function App() {
   }
 
   useEffect(() => {
+    injectStyles()
     const savedPassword = localStorage.getItem('admin_auth')
     if (savedPassword) {
       handleLogin(savedPassword).finally(() => setLoading(false))

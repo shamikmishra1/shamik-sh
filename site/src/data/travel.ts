@@ -196,7 +196,7 @@ export const destinations: Record<number, YearData> = {
           name: 'Voss',
           coords: [60.6281, 6.4167],
           photos: ['lakeside-park-portrait.jpg', 'lakeside-golden-hour.jpg'],
-          description: 'Golden hour by the lake. The kind of light that makes everyone look good.',
+          description: 'Golden hour by the lake. One of those evenings you wish lasted longer.',
         },
         hardangerfjord: {
           name: 'Hardangerfjord',

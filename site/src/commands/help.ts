@@ -6,7 +6,7 @@ projects       - things I've built
 socials        - find me online
 music          - what I'm listening to
 reading        - what I'm reading
-travel         - places I've been
+travel         - places I've been (try 'travel random')
 surprise       - feeling lucky?
 themes         - change terminal colors
 clear          - clear terminal

@@ -108,9 +108,22 @@ const GalleryContainer = styled.div`
 
 const PlaceImage = styled.img`
   max-width: 100%;
-  max-height: 200px;
+  max-height: 350px;
   border-radius: 8px;
   margin-bottom: 8px;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
+`;
+
+const PlaceVideo = styled.video`
+  max-width: 100%;
+  max-height: 350px;
+  border-radius: 8px;
+  margin-bottom: 8px;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
 `;
 
 const GalleryNav = styled.button`
@@ -166,9 +179,10 @@ export function Timeline() {
   const handleSelectTrip = (year: number, tripKey: string, country: CountryData, placeKey: string, place: Place) => {
     if (selectedTrip?.year === year && selectedTrip?.tripKey === tripKey && selectedTrip?.placeKey === placeKey) {
       setSelectedTrip(null);
-    } else {
-      setSelectedTrip({ year, tripKey, country, placeKey, place });
       setPhotoIndex(0);
+    } else {
+      setPhotoIndex(0);
+      setSelectedTrip({ year, tripKey, country, placeKey, place });
     }
   };
 
@@ -183,7 +197,7 @@ export function Timeline() {
   };
 
   return (
-    <TimelineContainer>
+    <TimelineContainer onClick={(e) => e.stopPropagation()} onMouseDown={(e) => e.stopPropagation()}>
       <StatsHeader>
         🌍 {countryCount} countries · {placeCount} places
       </StatsHeader>
@@ -199,7 +213,7 @@ export function Timeline() {
               Object.entries(country.places).map(([placeKey, place]) => {
                 const isSelected = selectedTrip?.year === year && selectedTrip?.tripKey === tripKey && selectedTrip?.placeKey === placeKey;
                 return (
-                  <div key={`${tripKey}-${placeKey}`}>
+                  <div key={`${year}-${country.month}-${tripKey}-${placeKey}`}>
                     <TripItem
                       $selected={isSelected}
                       onClick={() => handleSelectTrip(year, tripKey, country, placeKey, place)}
@@ -215,10 +229,24 @@ export function Timeline() {
                     {isSelected && place.photos.length > 0 && (
                       <PhotoSection>
                         <GalleryContainer>
-                          <PlaceImage
-                            src={getPhotoPath(year, country.month, tripKey, placeKey, place.photos[photoIndex])}
-                            alt={place.name}
-                          />
+                          {place.photos[photoIndex].endsWith('.mov') ? (
+                            <PlaceVideo
+                              src={getPhotoPath(year, country.month, tripKey, placeKey, place.photos[photoIndex])}
+                              autoPlay
+                              muted
+                              loop
+                              playsInline
+                              disablePictureInPicture
+                              onContextMenu={(e) => e.preventDefault()}
+                            />
+                          ) : (
+                            <PlaceImage
+                              src={getPhotoPath(year, country.month, tripKey, placeKey, place.photos[photoIndex])}
+                              alt={place.name}
+                              draggable={false}
+                              onContextMenu={(e) => e.preventDefault()}
+                            />
+                          )}
                           {place.photos.length > 1 && (
                             <>
                               <PrevButton onClick={handlePrev} disabled={photoIndex === 0}>

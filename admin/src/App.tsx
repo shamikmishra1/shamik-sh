@@ -11,6 +11,7 @@ interface DailyStats {
 interface ItemCount {
   name: string
   count: number
+  lastSeen?: string
 }
 
 interface DailyBreakdown {
@@ -118,7 +119,18 @@ function StatCard({ value, label }: { value: number; label: string }) {
   )
 }
 
-function ItemList({ title, items, iconMap }: { title: string; items: ItemCount[]; iconMap?: Record<string, string> }) {
+function ItemList({ title, items, iconMap, showLastSeen }: { title: string; items: ItemCount[]; iconMap?: Record<string, string>; showLastSeen?: boolean }) {
+  const formatLastSeen = (date: string | undefined) => {
+    if (!date) return ''
+    const d = new Date(date)
+    const today = new Date()
+    const diffDays = Math.floor((today.getTime() - d.getTime()) / (1000 * 60 * 60 * 24))
+    if (diffDays === 0) return 'today'
+    if (diffDays === 1) return '1d ago'
+    if (diffDays < 7) return `${diffDays}d ago`
+    return date.slice(5) // MM-DD
+  }
+
   return (
     <div style={styles.section}>
       <h2 style={styles.sectionTitle}>{title}</h2>
@@ -128,7 +140,12 @@ function ItemList({ title, items, iconMap }: { title: string; items: ItemCount[]
             <span>
               {iconMap?.[item.name] ?? ''} {item.name}
             </span>
-            <span style={styles.count}>{item.count}</span>
+            <span style={styles.countContainer}>
+              {showLastSeen && item.lastSeen && (
+                <span style={styles.lastSeen}>{formatLastSeen(item.lastSeen)}</span>
+              )}
+              <span style={styles.count}>{item.count}</span>
+            </span>
           </div>
         ))}
         {items.length === 0 && <div style={styles.empty}>No data yet</div>}
@@ -234,8 +251,8 @@ function Dashboard({ stats, billing, onLogout }: { stats: Stats; billing: Billin
 
       <div style={styles.gridThree} className="grid-three">
         <ItemList title="Commands" items={stats.topCommands} />
-        <ItemList title="Countries" items={stats.countries.map(c => ({ ...c, name: `${COUNTRY_FLAGS[c.name] || '🌍'} ${c.name}` }))} />
-        <ItemList title="Cities" items={stats.cities} />
+        <ItemList title="Countries" items={stats.countries.map(c => ({ ...c, name: `${COUNTRY_FLAGS[c.name] || '🌍'} ${c.name}` }))} showLastSeen />
+        <ItemList title="Cities" items={stats.cities} showLastSeen />
       </div>
 
       <div style={styles.gridThree} className="grid-three">
@@ -611,6 +628,19 @@ const styles: Record<string, React.CSSProperties> = {
   count: {
     color: '#666',
     fontFamily: 'monospace',
+  },
+  countContainer: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '8px',
+  },
+  lastSeen: {
+    fontSize: '10px',
+    color: '#10b981',
+    background: '#10b98122',
+    padding: '3px 8px',
+    borderRadius: '4px',
+    fontWeight: 'bold',
   },
   empty: {
     padding: '20px',

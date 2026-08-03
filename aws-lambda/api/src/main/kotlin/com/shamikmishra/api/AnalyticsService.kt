@@ -25,7 +25,7 @@ data class DailyStats(val date: String, val views: Long, val uniqueVisitors: Lon
 data class DailyBreakdown(val date: String, val items: List<ItemCount>)
 
 @Serializable
-data class ItemCount(val name: String, val count: Long)
+data class ItemCount(val name: String, val count: Long, val lastSeen: String? = null)
 
 @Serializable
 data class StatsResponse(
@@ -90,11 +90,11 @@ object AnalyticsService {
             }
 
             info.country?.takeIf { it.isNotBlank() && it.length == 2 }?.let {
-                incrementCounter("COUNTRY", it.uppercase(), "count")
+                incrementCounterWithLastSeen("COUNTRY", it.uppercase(), "count", today)
                 incrementCounter("COUNTRY#$today", it.uppercase(), "count")
             }
             info.city?.takeIf { it.isNotBlank() }?.let {
-                incrementCounter("CITY", it, "count")
+                incrementCounterWithLastSeen("CITY", it, "count", today)
                 incrementCounter("CITY#$today", it, "count")
             }
             info.region?.takeIf { it.isNotBlank() }?.let {
@@ -174,6 +174,19 @@ object AnalyticsService {
             .updateExpression("ADD #field :inc")
             .expressionAttributeNames(mapOf("#field" to field))
             .expressionAttributeValues(mapOf(":inc" to AttributeValue.builder().n("1").build()))
+            .build())
+    }
+
+    private fun incrementCounterWithLastSeen(pk: String, sk: String, field: String, date: String) {
+        client.updateItem(UpdateItemRequest.builder()
+            .tableName(tableName)
+            .key(mapOf("pk" to attr(pk), "sk" to attr(sk)))
+            .updateExpression("ADD #field :inc SET #lastSeen = :date")
+            .expressionAttributeNames(mapOf("#field" to field, "#lastSeen" to "lastSeen"))
+            .expressionAttributeValues(mapOf(
+                ":inc" to AttributeValue.builder().n("1").build(),
+                ":date" to attr(date)
+            ))
             .build())
     }
 
@@ -257,7 +270,8 @@ object AnalyticsService {
             .mapNotNull { item ->
                 val sk = item["sk"]?.s() ?: return@mapNotNull null
                 val count = item["count"]?.n()?.toLongOrNull() ?: 0L
-                ItemCount(sk, count)
+                val lastSeen = item["lastSeen"]?.s()
+                ItemCount(sk, count, lastSeen)
             }
             .sortedByDescending { it.count }
             .take(limit)

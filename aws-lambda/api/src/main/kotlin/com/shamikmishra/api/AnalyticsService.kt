@@ -52,7 +52,8 @@ data class StatsResponse(
     val browsers: List<ItemCount>,
     val os: List<ItemCount>,
     val referrers: List<ItemCount>,
-    val referrersByDay: List<DailyBreakdown>
+    val referrersByDay: List<DailyBreakdown>,
+    val isps: List<ItemCount>
 )
 
 data class VisitorInfo(
@@ -67,7 +68,11 @@ data class VisitorInfo(
     val browser: String?,
     val os: String?,
     val referrer: String?,
-    val ipHash: String?
+    val ipHash: String?,
+    val isp: String? = null,
+    val isMobile: Boolean? = null,
+    val isProxy: Boolean? = null,
+    val isHosting: Boolean? = null
 )
 
 object AnalyticsService {
@@ -131,6 +136,9 @@ object AnalyticsService {
                     incrementCounter("REFERRER", domain, "count")
                     incrementCounter("REFERRER#$today", domain, "count")
                 }
+            }
+            info.isp?.takeIf { it.isNotBlank() }?.let {
+                incrementCounter("ISP", it, "count")
             }
         } else {
             incrementCounter("CMD", event.command!!, "count")
@@ -294,7 +302,8 @@ object AnalyticsService {
             browsers = getTopItems("BROWSER"),
             os = getTopItems("OS"),
             referrers = getTopItems("REFERRER"),
-            referrersByDay = last7Days.map { date -> DailyBreakdown(date, getTopItems("REFERRER#$date")) }
+            referrersByDay = last7Days.map { date -> DailyBreakdown(date, getTopItems("REFERRER#$date")) },
+            isps = getTopItems("ISP")
         )
     }
 

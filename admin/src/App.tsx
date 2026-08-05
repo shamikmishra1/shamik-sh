@@ -46,6 +46,7 @@ interface Stats {
   os: ItemCount[]
   referrers: ItemCount[]
   referrersByDay: DailyBreakdown[]
+  isps: ItemCount[]
 }
 
 interface ServiceCost {
@@ -301,6 +302,10 @@ function Dashboard({ stats, billing, onLogout }: { stats: Stats; billing: Billin
         <ItemList title="Devices" items={stats.devices} iconMap={{ mobile: '📱', tablet: '📱', desktop: '💻' }} />
         <ItemList title="Browsers" items={stats.browsers} iconMap={BROWSER_ICONS} />
         <ItemList title="OS" items={stats.os} iconMap={OS_ICONS} />
+      </div>
+
+      <div style={styles.gridTwo} className="grid-two">
+        <ItemList title="ISPs" items={stats.isps} />
       </div>
     </div>
   )

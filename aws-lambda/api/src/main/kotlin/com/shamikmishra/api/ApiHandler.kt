@@ -15,58 +15,95 @@ class ApiHandler : RequestHandler<APIGatewayV2HTTPEvent, APIGatewayV2HTTPRespons
 
     private val json = Json { prettyPrint = true; ignoreUnknownKeys = true }
 
-    override fun handleRequest(
-        input: APIGatewayV2HTTPEvent,
-        context: Context
-    ): APIGatewayV2HTTPResponse {
+    override fun handleRequest(input: APIGatewayV2HTTPEvent, context: Context): APIGatewayV2HTTPResponse {
+        val traceId = RequestContext.newTrace()
         val path = input.rawPath ?: input.requestContext?.http?.path ?: "/"
         val method = input.requestContext?.http?.method ?: "GET"
-        logger.info { "Request: $method $path" }
 
+        logger.info { "[$traceId] $method $path" }
+
+        return try {
+            route(path, method, input)
+        } catch (e: ApiException) {
+            e.logMessage?.let { logger.error { "[$traceId] ${e.logMessage}" } }
+            errorResponse(e.status.value, e.message, traceId)
+        } catch (e: Exception) {
+            logger.error(e) { "[$traceId] Unexpected error" }
+            errorResponse(500, "Internal error", traceId)
+        } finally {
+            RequestContext.clear()
+        }
+    }
+
+    private fun route(path: String, method: String, input: APIGatewayV2HTTPEvent): APIGatewayV2HTTPResponse {
         return when {
-            path == "/health" -> healthResponse()
-            path == "/music" || path == "/now-playing" -> musicResponse()
-            path == "/reading" -> readingResponse()
-            path == "/track" && method == "POST" -> trackResponse(input)
-            path == "/stats" -> statsResponse()
-            path == "/billing" -> billingResponse()
-            path == "/auth" && method == "POST" -> authResponse(input)
-            else -> notFoundResponse(path)
+            path == "/health" -> health()
+            path == "/music" || path == "/now-playing" -> music()
+            path == "/reading" -> reading()
+            path == "/track" && method == "POST" -> track(input)
+            path == "/stats" -> stats()
+            path == "/billing" -> billing()
+            path == "/auth" && method == "POST" -> auth(input)
+            else -> throw ApiException.NotFound("Not found: $path")
         }
     }
 
-    private fun healthResponse() = jsonResponse(
-        mapOf(
-            "status" to "healthy",
-            "timestamp" to java.time.Instant.now().toString()
-        )
-    )
+    private fun health() = ok(mapOf("status" to "healthy", "timestamp" to java.time.Instant.now().toString()))
 
-    private fun musicResponse() = runBlocking {
-        val nowPlaying = LastFmService.getNowPlaying()
-        jsonResponse(nowPlaying)
-    }
+    private fun music() = runBlocking { ok(LastFmService.getNowPlaying()) }
 
-    private fun readingResponse(): APIGatewayV2HTTPResponse {
+    private fun reading(): APIGatewayV2HTTPResponse {
         return try {
-            jsonResponse(getReadingResponse(), raw = true)
+            okRaw(getReadingResponse())
         } catch (e: Exception) {
-            logger.error(e) { "Failed to get reading data" }
-            jsonResponse("""{"currentlyReading":[],"recentlyRead":[]}""", raw = true)
+            logger.error(e) { "[${RequestContext.get()}] Failed to get reading data" }
+            okRaw("""{"currentlyReading":[],"recentlyRead":[]}""")
         }
     }
 
-    private fun trackResponse(input: APIGatewayV2HTTPEvent): APIGatewayV2HTTPResponse {
-        return try {
-            val body = input.body ?: return badRequestResponse("Missing body")
-            val event = json.decodeFromString<TrackEvent>(body)
-            val info = extractVisitorInfo(input)
-            AnalyticsService.track(event, info)
-            jsonResponse(mapOf("status" to "tracked"))
+    private fun track(input: APIGatewayV2HTTPEvent): APIGatewayV2HTTPResponse {
+        val body = input.body ?: throw ApiException.BadRequest("Missing body")
+        val event = try {
+            json.decodeFromString<TrackEvent>(body)
         } catch (e: Exception) {
-            logger.error(e) { "Failed to track event" }
-            badRequestResponse("Invalid request: ${e.message}")
+            throw ApiException.BadRequest("Invalid JSON", e.message)
         }
+        AnalyticsService.track(event, extractVisitorInfo(input))
+        return ok(mapOf("status" to "tracked"))
+    }
+
+    private fun stats(): APIGatewayV2HTTPResponse {
+        return try {
+            ok(AnalyticsService.getStats())
+        } catch (e: Exception) {
+            throw ApiException.InternalError("Failed to get stats", e.message)
+        }
+    }
+
+    private fun billing(): APIGatewayV2HTTPResponse {
+        return try {
+            ok(BillingService.getBilling())
+        } catch (e: Exception) {
+            throw ApiException.InternalError("Failed to get billing", e.message)
+        }
+    }
+
+    private fun auth(input: APIGatewayV2HTTPEvent): APIGatewayV2HTTPResponse {
+        val body = input.body ?: throw ApiException.BadRequest("Missing body")
+        val request = try {
+            json.decodeFromString<AuthRequest>(body)
+        } catch (e: Exception) {
+            throw ApiException.BadRequest("Invalid JSON")
+        }
+
+        val adminPassword = Secrets.get("ADMIN_PASSWORD")
+            ?: throw ApiException.InternalError("Auth not configured", "ADMIN_PASSWORD not set")
+
+        if (request.password != adminPassword) {
+            throw ApiException.Unauthorized("Invalid password")
+        }
+
+        return ok(mapOf("authenticated" to true))
     }
 
     private fun extractVisitorInfo(input: APIGatewayV2HTTPEvent): VisitorInfo {
@@ -75,36 +112,41 @@ class ApiHandler : RequestHandler<APIGatewayV2HTTPEvent, APIGatewayV2HTTPRespons
         val ip = headers["x-forwarded-for"]?.split(",")?.firstOrNull()?.trim()
             ?: input.requestContext?.http?.sourceIp
 
+        val cloudFrontCountry = headers["cloudfront-viewer-country"] ?: headers["CloudFront-Viewer-Country"]
+        val cloudFrontCity = headers["cloudfront-viewer-city"] ?: headers["CloudFront-Viewer-City"]
+        val geoLocation = if (cloudFrontCountry == null) GeoIpService.lookup(ip) else null
+
         return VisitorInfo(
-            country = headers["cloudfront-viewer-country"]
-                ?: headers["CloudFront-Viewer-Country"],
+            country = cloudFrontCountry ?: geoLocation?.countryCode,
             region = headers["cloudfront-viewer-country-region-name"]
-                ?: headers["CloudFront-Viewer-Country-Region-Name"],
-            city = headers["cloudfront-viewer-city"]
-                ?: headers["CloudFront-Viewer-City"],
-            postalCode = headers["cloudfront-viewer-postal-code"]
-                ?: headers["CloudFront-Viewer-Postal-Code"],
+                ?: headers["CloudFront-Viewer-Country-Region-Name"]
+                ?: geoLocation?.region,
+            city = cloudFrontCity ?: geoLocation?.city,
+            postalCode = headers["cloudfront-viewer-postal-code"] ?: headers["CloudFront-Viewer-Postal-Code"],
             timezone = headers["cloudfront-viewer-time-zone"]
-                ?: headers["CloudFront-Viewer-Time-Zone"],
-            latitude = headers["cloudfront-viewer-latitude"]
-                ?: headers["CloudFront-Viewer-Latitude"],
-            longitude = headers["cloudfront-viewer-longitude"]
-                ?: headers["CloudFront-Viewer-Longitude"],
+                ?: headers["CloudFront-Viewer-Time-Zone"]
+                ?: geoLocation?.timezone,
+            latitude = headers["cloudfront-viewer-latitude"] ?: headers["CloudFront-Viewer-Latitude"],
+            longitude = headers["cloudfront-viewer-longitude"] ?: headers["CloudFront-Viewer-Longitude"],
             device = parseDevice(userAgent),
             browser = parseBrowser(userAgent),
             os = parseOS(userAgent),
             referrer = headers["referer"] ?: headers["Referer"],
-            ipHash = AnalyticsService.hashIp(ip)
+            ipHash = AnalyticsService.hashIp(ip),
+            isp = geoLocation?.isp,
+            isMobile = geoLocation?.isMobile,
+            isProxy = geoLocation?.isProxy,
+            isHosting = geoLocation?.isHosting
         )
     }
 
-    private fun parseDevice(ua: String): String = when {
+    private fun parseDevice(ua: String) = when {
         ua.contains("Mobile", true) || ua.contains("Android", true) && !ua.contains("Tablet", true) -> "mobile"
         ua.contains("Tablet", true) || ua.contains("iPad", true) -> "tablet"
         else -> "desktop"
     }
 
-    private fun parseBrowser(ua: String): String = when {
+    private fun parseBrowser(ua: String) = when {
         ua.contains("Edg/", true) -> "Edge"
         ua.contains("Chrome/", true) && !ua.contains("Edg/", true) -> "Chrome"
         ua.contains("Safari/", true) && !ua.contains("Chrome/", true) -> "Safari"
@@ -113,7 +155,7 @@ class ApiHandler : RequestHandler<APIGatewayV2HTTPEvent, APIGatewayV2HTTPRespons
         else -> "Other"
     }
 
-    private fun parseOS(ua: String): String = when {
+    private fun parseOS(ua: String) = when {
         ua.contains("Windows", true) -> "Windows"
         ua.contains("Mac OS X", true) || ua.contains("Macintosh", true) -> "macOS"
         ua.contains("iPhone", true) || ua.contains("iPad", true) -> "iOS"
@@ -122,83 +164,22 @@ class ApiHandler : RequestHandler<APIGatewayV2HTTPEvent, APIGatewayV2HTTPRespons
         else -> "Other"
     }
 
-    private fun authResponse(input: APIGatewayV2HTTPEvent): APIGatewayV2HTTPResponse {
-        return try {
-            val body = input.body ?: return badRequestResponse("Missing body")
-            val request = json.decodeFromString<AuthRequest>(body)
-
-            val adminPassword = Secrets.get("ADMIN_PASSWORD")
-            if (adminPassword == null) {
-                logger.error { "ADMIN_PASSWORD not configured" }
-                return errorResponse("Auth not configured")
-            }
-
-            if (request.password == adminPassword) {
-                jsonResponse(mapOf("authenticated" to true))
-            } else {
-                unauthorizedResponse("Invalid password")
-            }
-        } catch (e: Exception) {
-            logger.error(e) { "Auth failed" }
-            badRequestResponse("Invalid request")
-        }
-    }
-
-    private fun statsResponse(): APIGatewayV2HTTPResponse {
-        return try {
-            val stats = AnalyticsService.getStats()
-            jsonResponse(stats)
-        } catch (e: Exception) {
-            logger.error(e) { "Failed to get stats" }
-            errorResponse("Failed to get stats: ${e.message}")
-        }
-    }
-
-    private fun billingResponse(): APIGatewayV2HTTPResponse {
-        return try {
-            val billing = BillingService.getBilling()
-            jsonResponse(billing)
-        } catch (e: Exception) {
-            logger.error(e) { "Failed to get billing" }
-            errorResponse("Failed to get billing: ${e.message}")
-        }
-    }
-
-    private fun notFoundResponse(path: String) = APIGatewayV2HTTPResponse.builder()
-        .withStatusCode(404)
-        .withHeaders(corsHeaders())
-        .withBody(json.encodeToString(mapOf("error" to "Not found: $path")))
-        .build()
-
-    private fun badRequestResponse(message: String) = APIGatewayV2HTTPResponse.builder()
-        .withStatusCode(400)
-        .withHeaders(corsHeaders())
-        .withBody(json.encodeToString(mapOf("error" to message)))
-        .build()
-
-    private fun unauthorizedResponse(message: String) = APIGatewayV2HTTPResponse.builder()
-        .withStatusCode(401)
-        .withHeaders(corsHeaders())
-        .withBody(json.encodeToString(mapOf("error" to message)))
-        .build()
-
-    private fun errorResponse(message: String) = APIGatewayV2HTTPResponse.builder()
-        .withStatusCode(500)
-        .withHeaders(corsHeaders())
-        .withBody(json.encodeToString(mapOf("error" to message)))
-        .build()
-
-    private inline fun <reified T> jsonResponse(body: T) = APIGatewayV2HTTPResponse.builder()
+    private inline fun <reified T> ok(body: T) = APIGatewayV2HTTPResponse.builder()
         .withStatusCode(200)
         .withHeaders(corsHeaders())
         .withBody(json.encodeToString(body))
         .build()
 
-    @Suppress("UNUSED_PARAMETER")
-    private fun jsonResponse(body: String, raw: Boolean) = APIGatewayV2HTTPResponse.builder()
+    private fun okRaw(body: String) = APIGatewayV2HTTPResponse.builder()
         .withStatusCode(200)
         .withHeaders(corsHeaders())
         .withBody(body)
+        .build()
+
+    private fun errorResponse(status: Int, message: String, traceId: String) = APIGatewayV2HTTPResponse.builder()
+        .withStatusCode(status)
+        .withHeaders(corsHeaders())
+        .withBody(json.encodeToString(mapOf("error" to message, "traceId" to traceId)))
         .build()
 
     private fun corsHeaders() = mapOf(

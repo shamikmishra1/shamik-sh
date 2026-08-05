@@ -91,6 +91,8 @@ resource "aws_dynamodb_table" "analytics" {
     enabled        = true
   }
 
+  deletion_protection_enabled = true
+
   tags = { Name = "${var.domain_name} Analytics" }
 }
 

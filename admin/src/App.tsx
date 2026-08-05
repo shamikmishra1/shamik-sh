@@ -11,7 +11,9 @@ interface DailyStats {
 interface ItemCount {
   name: string
   count: number
+  unique?: number
   lastSeen?: string
+  firstSeen?: string
 }
 
 interface DailyBreakdown {
@@ -24,6 +26,11 @@ interface Stats {
   totalUniqueVisitors: number
   todayViews: number
   todayUniqueVisitors: number
+  newVisitorsToday: number
+  returningVisitorsToday: number
+  totalCommands: number
+  avgCommandsPerVisitor: number
+  weekOverWeekGrowth: number
   dailyStats: DailyStats[]
   topCommands: ItemCount[]
   countries: ItemCount[]
@@ -110,17 +117,18 @@ function LoginForm({ onLogin, error }: { onLogin: (password: string) => void; er
   )
 }
 
-function StatCard({ value, label }: { value: number; label: string }) {
+function StatCard({ value, label, subValue }: { value: number | string; label: string; subValue?: string }) {
   return (
     <div style={styles.statCard}>
-      <div style={styles.statValue} className="stat-value">{value.toLocaleString()}</div>
+      <div style={styles.statValue} className="stat-value">{typeof value === 'number' ? value.toLocaleString() : value}</div>
       <div style={styles.statLabel}>{label}</div>
+      {subValue && <div style={styles.statSubValue}>{subValue}</div>}
     </div>
   )
 }
 
 function ItemList({ title, items, iconMap, showLastSeen }: { title: string; items: ItemCount[]; iconMap?: Record<string, string>; showLastSeen?: boolean }) {
-  const formatLastSeen = (date: string | undefined) => {
+  const formatDate = (date: string | undefined) => {
     if (!date) return ''
     const d = new Date(date)
     const today = new Date()
@@ -137,14 +145,19 @@ function ItemList({ title, items, iconMap, showLastSeen }: { title: string; item
       <div style={styles.list}>
         {items.map((item) => (
           <div key={item.name} style={styles.listRow}>
-            <span>
+            <span style={styles.itemName}>
               {iconMap?.[item.name] ?? ''} {item.name}
+              {showLastSeen && item.firstSeen && (
+                <span style={styles.firstSeen}>since {item.firstSeen.slice(5)}</span>
+              )}
             </span>
             <span style={styles.countContainer}>
               {showLastSeen && item.lastSeen && (
-                <span style={styles.lastSeen}>{formatLastSeen(item.lastSeen)}</span>
+                <span style={styles.lastSeen}>{formatDate(item.lastSeen)}</span>
               )}
-              <span style={styles.count}>{item.count}</span>
+              <span style={styles.count}>
+                {item.unique != null ? `${item.unique} / ${item.count}` : item.count}
+              </span>
             </span>
           </div>
         ))}
@@ -203,6 +216,29 @@ function Dashboard({ stats, billing, onLogout }: { stats: Stats; billing: Billin
         <StatCard value={stats.totalUniqueVisitors} label="Unique Visitors" />
         <StatCard value={stats.todayViews} label="Today Views" />
         <StatCard value={stats.todayUniqueVisitors} label="Today Unique" />
+      </div>
+
+      <div style={styles.statsGrid} className="stats-grid">
+        <StatCard
+          value={stats.newVisitorsToday}
+          label="New Today"
+          subValue="First time visitors"
+        />
+        <StatCard
+          value={stats.returningVisitorsToday}
+          label="Returning Today"
+          subValue="Came back"
+        />
+        <StatCard
+          value={stats.avgCommandsPerVisitor.toFixed(1)}
+          label="Avg Commands"
+          subValue="Per visitor"
+        />
+        <StatCard
+          value={`${stats.weekOverWeekGrowth >= 0 ? '+' : ''}${stats.weekOverWeekGrowth.toFixed(0)}%`}
+          label="WoW Growth"
+          subValue="vs last week"
+        />
       </div>
 
       <div style={styles.section}>
@@ -529,6 +565,11 @@ const styles: Record<string, React.CSSProperties> = {
     marginTop: '8px',
     fontSize: '14px',
   },
+  statSubValue: {
+    color: '#555',
+    marginTop: '4px',
+    fontSize: '11px',
+  },
   section: {
     marginBottom: '24px',
   },
@@ -624,6 +665,16 @@ const styles: Record<string, React.CSSProperties> = {
     padding: '10px 14px',
     borderBottom: '1px solid #252525',
     fontSize: '13px',
+  },
+  itemName: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '6px',
+  },
+  firstSeen: {
+    fontSize: '9px',
+    color: '#666',
+    fontStyle: 'italic',
   },
   count: {
     color: '#666',

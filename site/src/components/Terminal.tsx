@@ -56,7 +56,7 @@ const TerminalContainer = styled.div`
   flex: 1;
   display: flex;
   flex-direction: column;
-  max-width: 900px;
+  max-width: 1000px;
   margin: 20px auto;
   width: 100%;
   padding: 0 20px;
@@ -179,11 +179,21 @@ interface OutputItem {
 }
 
 function linkify(text: string) {
-  const urlRegex = /(https?:\/\/[^\s]+)/g;
+  const urlRegex = /(https?:\/\/[^\s]+|mailto:[^\s]+)/g;
   const parts = text.split(urlRegex);
   return parts.map((part, i) => {
     if (part.match(urlRegex)) {
-      return <Link key={i} href={part} target="_blank" rel="noopener noreferrer">{part}</Link>;
+      const isMailto = part.startsWith('mailto:');
+      return (
+        <Link
+          key={i}
+          href={part}
+          target={isMailto ? undefined : "_blank"}
+          rel={isMailto ? undefined : "noopener noreferrer"}
+        >
+          {isMailto ? part.replace('mailto:', '') : part}
+        </Link>
+      );
     }
     return part;
   });

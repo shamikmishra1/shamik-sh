@@ -23,8 +23,8 @@ resource "aws_iam_role_policy" "lambda_secrets" {
   policy = jsonencode({
     Version = "2012-10-17"
     Statement = [{
-      Effect   = "Allow"
-      Action   = ["secretsmanager:GetSecretValue"]
+      Effect = "Allow"
+      Action = ["secretsmanager:GetSecretValue"]
       Resource = [
         data.aws_secretsmanager_secret.api_secrets.arn,
         data.aws_secretsmanager_secret.hardcover_token.arn

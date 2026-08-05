@@ -1,3 +1,15 @@
+data "aws_cloudfront_cache_policy" "caching_disabled" {
+  name = "Managed-CachingDisabled"
+}
+
+data "aws_cloudfront_cache_policy" "caching_optimized" {
+  name = "Managed-CachingOptimized"
+}
+
+data "aws_cloudfront_origin_request_policy" "all_viewer_except_host" {
+  name = "Managed-AllViewerExceptHostHeader"
+}
+
 resource "aws_cloudfront_origin_access_control" "website" {
   name                              = "${var.domain_name}-oac"
   origin_access_control_origin_type = "s3"
@@ -96,8 +108,8 @@ resource "aws_cloudfront_distribution" "website" {
     target_origin_id         = local.api_origin_id
     viewer_protocol_policy   = "redirect-to-https"
     compress                 = true
-    cache_policy_id          = "4135ea2d-6df8-44a3-9df3-4b5a84be39ad"
-    origin_request_policy_id = "b689b0a8-53d0-40ab-baf2-68738e2966ac"
+    cache_policy_id          = data.aws_cloudfront_cache_policy.caching_disabled.id
+    origin_request_policy_id = data.aws_cloudfront_origin_request_policy.all_viewer_except_host.id
 
     function_association {
       event_type   = "viewer-request"
@@ -111,7 +123,7 @@ resource "aws_cloudfront_distribution" "website" {
     target_origin_id       = local.s3_origin_id
     viewer_protocol_policy = "redirect-to-https"
     compress               = true
-    cache_policy_id        = "658327ea-f89d-4fab-a63d-7e88639e58f6"
+    cache_policy_id = data.aws_cloudfront_cache_policy.caching_optimized.id
   }
 
   custom_error_response {
@@ -159,7 +171,7 @@ resource "aws_cloudfront_distribution" "admin" {
     target_origin_id       = local.s3_admin_origin
     viewer_protocol_policy = "redirect-to-https"
     compress               = true
-    cache_policy_id        = "658327ea-f89d-4fab-a63d-7e88639e58f6"
+    cache_policy_id = data.aws_cloudfront_cache_policy.caching_optimized.id
   }
 
   custom_error_response {

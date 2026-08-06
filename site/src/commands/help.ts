@@ -1,14 +1,14 @@
 export function help(): string {
   return `
-about          - about Shamik Mishra
-whoami         - who are you?
-projects       - things I've built
+about          - who I am
+career         - work history
 socials        - find me online
 music          - what I'm listening to
 reading        - what I'm reading
-travel         - places I've been (try 'travel random')
+travel         - places I've been
+travel random  - surprise destination
 surprise       - feeling lucky?
-themes         - change terminal colors
+themes         - change theme
 clear          - clear terminal
 `;
 }

@@ -111,6 +111,15 @@ const Result = styled.pre`
   word-wrap: break-word;
 `;
 
+const GreenText = styled.span`
+  color: #50fa7b;
+`;
+
+const WhiteText = styled.span`
+  color: #ffffff;
+  font-weight: 500;
+`;
+
 const ProfileImage = styled.img`
   width: 120px;
   height: 120px;
@@ -179,10 +188,10 @@ interface OutputItem {
 }
 
 function linkify(text: string) {
-  const urlRegex = /(https?:\/\/[^\s]+|mailto:[^\s]+)/g;
-  const parts = text.split(urlRegex);
+  const combinedRegex = /(https?:\/\/[^\s]+|mailto:[^\s]+|<green>[\s\S]*?<\/green>|<white>[\s\S]*?<\/white>)/g;
+  const parts = text.split(combinedRegex);
   return parts.map((part, i) => {
-    if (part.match(urlRegex)) {
+    if (part.match(/^https?:\/\//) || part.match(/^mailto:/)) {
       const isMailto = part.startsWith('mailto:');
       return (
         <Link
@@ -194,6 +203,14 @@ function linkify(text: string) {
           {isMailto ? part.replace('mailto:', '') : part}
         </Link>
       );
+    }
+    if (part.match(/^<green>/)) {
+      const content = part.replace(/<\/?green>/g, '');
+      return <GreenText key={i}>{content}</GreenText>;
+    }
+    if (part.match(/^<white>/)) {
+      const content = part.replace(/<\/?white>/g, '');
+      return <WhiteText key={i}>{content}</WhiteText>;
     }
     return part;
   });

@@ -1,5 +1,6 @@
 import { help } from './help';
 import { about } from './about';
+import { career } from './career';
 import { projects } from './projects';
 import { contact, socials } from './contact';
 import { easterEggs } from './easterEggs';
@@ -56,6 +57,7 @@ Type 'about' to learn about me instead.`;
 const commands: Record<string, CommandHandler> = {
   help,
   about,
+  career,
   whoami,
   projects,
   contact,

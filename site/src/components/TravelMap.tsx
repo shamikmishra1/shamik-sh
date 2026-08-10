@@ -157,7 +157,6 @@ export function TravelMap() {
 
   const { countryCount } = getStats();
 
-  // Group all visits by coordinates
   const locationGroups = useRef<Map<string, LocationGroup>>(new Map());
 
   useEffect(() => {
@@ -182,7 +181,6 @@ export function TravelMap() {
       popupAnchor: [0, -36]
     });
 
-    // Build location groups
     const groups = new Map<string, LocationGroup>();
 
     Object.entries(destinations).forEach(([yearStr, yearData]) => {
@@ -210,18 +208,15 @@ export function TravelMap() {
       });
     });
 
-    // Sort visits by year (oldest first)
     groups.forEach(group => {
       group.visits.sort((a, b) => a.year - b.year);
     });
 
     locationGroups.current = groups;
 
-    // Create one marker per unique location
     groups.forEach((group) => {
       const marker = L.marker(group.coords, { icon: pinIcon }).addTo(map);
 
-      // Show first visit's info in tooltip
       const firstVisit = group.visits[0];
       const visitCount = group.visits.length > 1 ? ` (${group.visits.length} visits)` : '';
       marker.bindTooltip(`${firstVisit.country.flag} ${firstVisit.place.name}${visitCount}`, {

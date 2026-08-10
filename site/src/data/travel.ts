@@ -32,7 +32,7 @@ export const destinations: Record<number, YearData> = {
     india: {
       name: 'India',
       flag: '🇮🇳',
-      month: 4, // April
+      month: 4,
       places: {
         patna: {
           name: 'Patna',
@@ -63,7 +63,7 @@ export const destinations: Record<number, YearData> = {
     poland: {
       name: 'Poland',
       flag: '🇵🇱',
-      month: 5, // May
+      month: 5,
       places: {
         gdansk: {
           name: 'Gdańsk',
@@ -84,7 +84,7 @@ export const destinations: Record<number, YearData> = {
     italy: {
       name: 'Italy',
       flag: '🇮🇹',
-      month: 4, // April
+      month: 4,
       places: {
         rome: {
           name: 'Rome',
@@ -133,7 +133,7 @@ export const destinations: Record<number, YearData> = {
     'norway-may': {
       name: 'Norway',
       flag: '🇳🇴',
-      month: 5, // May
+      month: 5,
       places: {
         hovden: {
           name: 'Hovden',
@@ -146,7 +146,7 @@ export const destinations: Record<number, YearData> = {
     'norway-jul': {
       name: 'Norway',
       flag: '🇳🇴',
-      month: 7, // July
+      month: 7,
       places: {
         trolltunga: {
           name: 'Trolltunga',
@@ -165,7 +165,7 @@ export const destinations: Record<number, YearData> = {
     'norway-aug': {
       name: 'Norway',
       flag: '🇳🇴',
-      month: 8, // August
+      month: 8,
       places: {
         flam: {
           name: 'Flåm',
@@ -178,7 +178,7 @@ export const destinations: Record<number, YearData> = {
     'norway-sep': {
       name: 'Norway',
       flag: '🇳🇴',
-      month: 9, // September
+      month: 9,
       places: {
         voringsfossen: {
           name: 'Vøringsfossen',
@@ -217,7 +217,7 @@ export const destinations: Record<number, YearData> = {
     'norway-jan': {
       name: 'Norway',
       flag: '🇳🇴',
-      month: 1, // January
+      month: 1,
       places: {
         bergen: {
           name: 'Bergen',
@@ -248,7 +248,7 @@ export const destinations: Record<number, YearData> = {
     'norway-may': {
       name: 'Norway',
       flag: '🇳🇴',
-      month: 5, // May
+      month: 5,
       places: {
         viksdalen: {
           name: 'Viksdalen',
@@ -267,7 +267,7 @@ export const destinations: Record<number, YearData> = {
     denmark: {
       name: 'Denmark',
       flag: '🇩🇰',
-      month: 5, // May
+      month: 5,
       places: {
         copenhagen: {
           name: 'Copenhagen',
@@ -280,7 +280,7 @@ export const destinations: Record<number, YearData> = {
     ireland: {
       name: 'Ireland',
       flag: '🇮🇪',
-      month: 8, // August
+      month: 8,
       places: {
         dublin: {
           name: 'Dublin',
@@ -335,7 +335,7 @@ export const destinations: Record<number, YearData> = {
     'norway-sep': {
       name: 'Norway',
       flag: '🇳🇴',
-      month: 9, // September
+      month: 9,
       places: {
         steinsdalsfossen: {
           name: 'Steinsdalsfossen',
@@ -348,7 +348,7 @@ export const destinations: Record<number, YearData> = {
     india: {
       name: 'India',
       flag: '🇮🇳',
-      month: 11, // November
+      month: 11,
       places: {
         delhi: {
           name: 'Delhi',
@@ -367,7 +367,7 @@ export const destinations: Record<number, YearData> = {
     germany: {
       name: 'Germany',
       flag: '🇩🇪',
-      month: 12, // December
+      month: 12,
       places: {
         frankfurt: {
           name: 'Frankfurt',
@@ -380,7 +380,7 @@ export const destinations: Record<number, YearData> = {
     'india-dec': {
       name: 'India',
       flag: '🇮🇳',
-      month: 12, // December
+      month: 12,
       places: {
         delhi: {
           name: 'Delhi',
@@ -395,7 +395,7 @@ export const destinations: Record<number, YearData> = {
     netherlands: {
       name: 'Netherlands',
       flag: '🇳🇱',
-      month: 9, // September
+      month: 9,
       places: {
         amsterdam: {
           name: 'Amsterdam',
@@ -408,7 +408,7 @@ export const destinations: Record<number, YearData> = {
     spain: {
       name: 'Spain',
       flag: '🇪🇸',
-      month: 9, // September
+      month: 9,
       places: {
         ibiza: {
           name: 'Ibiza',
@@ -421,7 +421,7 @@ export const destinations: Record<number, YearData> = {
     india: {
       name: 'India',
       flag: '🇮🇳',
-      month: 11, // November
+      month: 11,
       places: {
         delhi: {
           name: 'Delhi',
@@ -434,7 +434,7 @@ export const destinations: Record<number, YearData> = {
     'norway-dec': {
       name: 'Norway',
       flag: '🇳🇴',
-      month: 12, // December
+      month: 12,
       places: {
         bergen: {
           name: 'Bergen',
@@ -449,7 +449,7 @@ export const destinations: Record<number, YearData> = {
     india: {
       name: 'India',
       flag: '🇮🇳',
-      month: 1, // January
+      month: 1,
       places: {
         tirupati: {
           name: 'Tirupati',
@@ -462,7 +462,7 @@ export const destinations: Record<number, YearData> = {
     greece: {
       name: 'Greece',
       flag: '🇬🇷',
-      month: 4, // April
+      month: 4,
       places: {
         santorini: {
           name: 'Santorini',
@@ -487,7 +487,7 @@ export const destinations: Record<number, YearData> = {
     norway: {
       name: 'Norway',
       flag: '🇳🇴',
-      month: 7, // July
+      month: 7,
       places: {
         flam: {
           name: 'Flåm',
@@ -502,7 +502,7 @@ export const destinations: Record<number, YearData> = {
     'norway-jan': {
       name: 'Norway',
       flag: '🇳🇴',
-      month: 1, // January
+      month: 1,
       places: {
         geilo: {
           name: 'Geilo',
@@ -515,7 +515,7 @@ export const destinations: Record<number, YearData> = {
     'norway-jul': {
       name: 'Norway',
       flag: '🇳🇴',
-      month: 7, // July
+      month: 7,
       places: {
         odda: {
           name: 'Odda',
@@ -540,7 +540,7 @@ export const destinations: Record<number, YearData> = {
     india: {
       name: 'India',
       flag: '🇮🇳',
-      month: 12, // December
+      month: 12,
       places: {
         bengaluru: {
           name: 'Bengaluru',
@@ -555,7 +555,7 @@ export const destinations: Record<number, YearData> = {
     spain: {
       name: 'Spain',
       flag: '🇪🇸',
-      month: 1, // January
+      month: 1,
       places: {
         alicante: {
           name: 'Alicante',
@@ -574,7 +574,7 @@ export const destinations: Record<number, YearData> = {
     'norway-feb': {
       name: 'Norway',
       flag: '🇳🇴',
-      month: 2, // February
+      month: 2,
       places: {
         tromso: {
           name: 'Tromsø',
@@ -587,7 +587,7 @@ export const destinations: Record<number, YearData> = {
     'norway-jul': {
       name: 'Norway',
       flag: '🇳🇴',
-      month: 7, // July
+      month: 7,
       places: {
         ulvik: {
           name: 'Ulvik',
@@ -602,7 +602,7 @@ export const destinations: Record<number, YearData> = {
     norway: {
       name: 'Norway',
       flag: '🇳🇴',
-      month: 4, // April
+      month: 4,
       places: {
         steinsdalsfossen: {
           name: 'Steinsdalsfossen',
@@ -615,7 +615,7 @@ export const destinations: Record<number, YearData> = {
     iceland: {
       name: 'Iceland',
       flag: '🇮🇸',
-      month: 7, // July
+      month: 7,
       places: {
         vik: {
           name: 'Vík',
@@ -658,7 +658,7 @@ export const destinations: Record<number, YearData> = {
     france: {
       name: 'France',
       flag: '🇫🇷',
-      month: 10, // October
+      month: 10,
       places: {
         paris: {
           name: 'Paris',
@@ -676,7 +676,7 @@ export const destinations: Record<number, YearData> = {
     germany: {
       name: 'Germany',
       flag: '🇩🇪',
-      month: 10, // October
+      month: 10,
       places: {
         stuttgart: {
           name: 'Stuttgart',
@@ -691,7 +691,7 @@ export const destinations: Record<number, YearData> = {
     india: {
       name: 'India',
       flag: '🇮🇳',
-      month: 8, // August
+      month: 8,
       places: {
         ranchi: {
           name: 'Ranchi',
@@ -704,19 +704,16 @@ export const destinations: Record<number, YearData> = {
   },
 };
 
-// Helper to get the country folder from a tripKey
 export function getCountryFolder(tripKey: string): string {
   return tripKey.includes('-') ? tripKey.split('-')[0] : tripKey;
 }
 
-// Helper to build the photo path
 export function getPhotoPath(year: number, month: number, tripKey: string, placeKey: string, photo: string): string {
   const monthFolder = getMonthFolder(month);
   const countryFolder = getCountryFolder(tripKey);
   return `/travel/${year}/${monthFolder}/${countryFolder}/${placeKey}/${photo}`;
 }
 
-// Helper to get stats
 export function getStats() {
   const countries = new Set<string>();
   let placeCount = 0;

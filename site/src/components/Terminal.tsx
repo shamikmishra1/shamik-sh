@@ -436,10 +436,8 @@ export function Terminal({ output, onCommand, onNavigateHistory }: TerminalProps
     inputRef.current?.focus();
   }, []);
 
-  // Focus input and scroll to bottom when user starts typing anywhere
   useEffect(() => {
     const handleGlobalKeyDown = (e: KeyboardEvent) => {
-      // Ignore if already focused on input, or if it's a modifier key
       if (document.activeElement === inputRef.current) return;
       if (e.metaKey || e.ctrlKey || e.altKey) return;
       if (e.key.length === 1 || e.key === 'Backspace') {

@@ -1,7 +1,3 @@
-// Drop photos in: site/public/surprise/
-// Name them anything: sunset.jpg, coffee.jpg, etc.
-// Add entries here with the filename and caption
-
 export interface SurprisePhoto {
   file: string;
   caption: string;
@@ -12,10 +8,7 @@ export interface SurpriseWebsite {
   desc: string;
 }
 
-export const photos: SurprisePhoto[] = [
-  // { file: 'sunset.jpg', caption: 'Chasing sunsets in Bergen' },
-  // { file: 'coffee.jpg', caption: 'Fuel for debugging' },
-];
+export const photos: SurprisePhoto[] = [];
 
 export const quotes = [
   '"The best way to predict the future is to invent it." - Alan Kay',

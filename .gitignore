@@ -65,3 +65,6 @@ coverage/
 
 # Personal docs (not committed)
 docs/personal/
+
+# Project planning (local only)
+projects/

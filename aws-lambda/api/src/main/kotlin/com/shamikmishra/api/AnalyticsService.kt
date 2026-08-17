@@ -141,7 +141,7 @@ object AnalyticsService {
                 incrementCounter("ISP", it, "count")
             }
         } else {
-            incrementCounter("CMD", event.command!!, "count")
+            incrementCounterWithFirstLastSeen("CMD", event.command, "count", today)
         }
     }
 

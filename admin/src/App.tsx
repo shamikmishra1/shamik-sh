@@ -287,7 +287,7 @@ function Dashboard({ stats, billing, onLogout }: { stats: Stats; billing: Billin
       </div>
 
       <div style={styles.gridThree} className="grid-three">
-        <ItemList title="Commands" items={stats.topCommands} />
+        <ItemList title="Commands" items={stats.topCommands} showLastSeen />
         <ItemList title="Countries" items={stats.countries.map(c => ({ ...c, name: `${COUNTRY_FLAGS[c.name] || '🌍'} ${c.name}` }))} showLastSeen />
         <ItemList title="Cities" items={stats.cities} showLastSeen />
       </div>

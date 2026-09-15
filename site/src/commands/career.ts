@@ -34,10 +34,8 @@ IoT on wheels. Less glamorous than it sounds.
 <green>2016–2021</green> · Tata Consultancy Services · <white>Developer</white>
 India → Bergen
 
-Enterprise banking. Where I learned software can't afford to be wrong.
-
 ▸ Tested Vipps at launch
-▸ Built Spare savings app
+▸ Helped in building and testing Spare savings app
 ▸ SME for SMS & Internet Banking
 
 ---

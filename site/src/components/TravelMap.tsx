@@ -11,6 +11,10 @@ const MapContainer = styled.div`
   margin: 10px 0;
   border: 1px solid ${({ theme }) => theme.colors.primary};
   position: relative;
+
+  .leaflet-tile-pane {
+    filter: invert(100%) hue-rotate(180deg) brightness(0.95) contrast(0.9);
+  }
 `;
 
 const StatsOverlay = styled.div`
@@ -165,8 +169,8 @@ export function TravelMap() {
     const map = L.map(mapRef.current).setView([45, 10], 3);
     mapInstanceRef.current = map;
 
-    L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
-      attribution: '&copy; OpenStreetMap &copy; CARTO',
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      attribution: '&copy; <a href="https://openstreetmap.org">OpenStreetMap</a> contributors',
       maxZoom: 19
     }).addTo(map);
 

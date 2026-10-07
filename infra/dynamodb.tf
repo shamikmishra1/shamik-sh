@@ -19,6 +19,15 @@ resource "aws_dynamodb_table" "analytics" {
     enabled        = true
   }
 
+  server_side_encryption {
+    enabled     = true
+    kms_key_arn = aws_kms_key.data.arn
+  }
+
   deletion_protection_enabled = true
   tags                        = { Name = "${var.domain_name} Analytics" }
+
+  lifecycle {
+    prevent_destroy = true
+  }
 }

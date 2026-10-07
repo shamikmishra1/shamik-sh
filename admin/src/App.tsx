@@ -62,6 +62,10 @@ interface Billing {
   lastUpdated: string
 }
 
+interface AuthResponse {
+  token: string
+}
+
 const COUNTRY_FLAGS: Record<string, string> = {
   'NO': '🇳🇴', 'US': '🇺🇸', 'GB': '🇬🇧', 'DE': '🇩🇪', 'IN': '🇮🇳',
   'FR': '🇫🇷', 'SE': '🇸🇪', 'DK': '🇩🇰', 'NL': '🇳🇱', 'CA': '🇨🇦',
@@ -348,8 +352,9 @@ function App() {
       })
 
       if (response.ok) {
+        const data: AuthResponse = await response.json()
+        sessionStorage.setItem('admin_token', data.token)
         setAuthenticated(true)
-        localStorage.setItem('admin_auth', password)
         await fetchStats()
         await fetchBilling()
       } else {
@@ -364,12 +369,16 @@ function App() {
     setAuthenticated(false)
     setStats(null)
     setBilling(null)
-    localStorage.removeItem('admin_auth')
+    sessionStorage.removeItem('admin_token')
   }
 
   const fetchStats = async () => {
     try {
-      const response = await fetch(`${API_URL}/stats`)
+      const response = await fetch(`${API_URL}/stats`, { headers: adminHeaders() })
+      if (response.status === 401) {
+        handleLogout()
+        return
+      }
       if (!response.ok) throw new Error('Failed to fetch stats')
       const data = await response.json()
       setStats(data)
@@ -380,7 +389,11 @@ function App() {
 
   const fetchBilling = async () => {
     try {
-      const response = await fetch(`${API_URL}/billing`)
+      const response = await fetch(`${API_URL}/billing`, { headers: adminHeaders() })
+      if (response.status === 401) {
+        handleLogout()
+        return
+      }
       if (response.ok) {
         const data = await response.json()
         setBilling(data)
@@ -392,16 +405,14 @@ function App() {
 
   useEffect(() => {
     injectStyles()
-    const savedPassword = localStorage.getItem('admin_auth')
-    if (savedPassword) {
-      handleLogin(savedPassword).finally(() => setLoading(false))
-    } else {
-      setLoading(false)
-    }
+    if (sessionStorage.getItem('admin_token')) setAuthenticated(true)
+    setLoading(false)
   }, [])
 
   useEffect(() => {
     if (authenticated) {
+      fetchStats()
+      fetchBilling()
       const statsInterval = setInterval(fetchStats, 30000)
       const billingInterval = setInterval(fetchBilling, 300000)
       return () => {
@@ -416,6 +427,11 @@ function App() {
   if (!stats) return <div style={styles.loading}>Loading stats...</div>
 
   return <Dashboard stats={stats} billing={billing} onLogout={handleLogout} />
+}
+
+function adminHeaders(): HeadersInit {
+  const token = sessionStorage.getItem('admin_token')
+  return token ? { Authorization: `Bearer ${token}` } : {}
 }
 
 const styles: Record<string, React.CSSProperties> = {

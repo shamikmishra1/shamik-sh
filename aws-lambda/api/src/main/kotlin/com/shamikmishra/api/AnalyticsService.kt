@@ -5,11 +5,13 @@ import software.amazon.awssdk.services.dynamodb.DynamoDbClient
 import software.amazon.awssdk.services.dynamodb.model.AttributeValue
 import software.amazon.awssdk.services.dynamodb.model.QueryRequest
 import software.amazon.awssdk.services.dynamodb.model.UpdateItemRequest
-import java.security.MessageDigest
+import java.nio.charset.StandardCharsets
 import java.time.LocalDate
 import java.time.ZoneId
 import java.time.ZonedDateTime
 import java.time.format.DateTimeFormatter
+import javax.crypto.Mac
+import javax.crypto.spec.SecretKeySpec
 
 @Serializable
 data class TrackEvent(
@@ -17,6 +19,14 @@ data class TrackEvent(
     val command: String? = null,
     val referrer: String? = null
 )
+
+fun TrackEvent.validate() {
+    if (page !in setOf("terminal", "gui")) throw ApiException.BadRequest("Invalid page")
+    if (command != null && (command.length !in 1..64 || command.any { it.isISOControl() })) {
+        throw ApiException.BadRequest("Invalid command")
+    }
+    if (referrer != null && referrer.length > 2_048) throw ApiException.BadRequest("Invalid referrer")
+}
 
 @Serializable
 data class DailyStats(val date: String, val views: Long, val uniqueVisitors: Long)
@@ -81,8 +91,10 @@ object AnalyticsService {
 
     fun hashIp(ip: String?): String? {
         if (ip.isNullOrBlank()) return null
-        val bytes = MessageDigest.getInstance("SHA-256").digest(ip.toByteArray())
-        return bytes.take(8).joinToString("") { "%02x".format(it) }
+        val secret = Secrets.get("ANALYTICS_HASH_SECRET") ?: return null
+        val mac = Mac.getInstance("HmacSHA256")
+        mac.init(SecretKeySpec(secret.toByteArray(StandardCharsets.UTF_8), "HmacSHA256"))
+        return mac.doFinal(ip.toByteArray(StandardCharsets.UTF_8)).take(16).joinToString("") { "%02x".format(it) }
     }
 
     fun track(event: TrackEvent, info: VisitorInfo) {

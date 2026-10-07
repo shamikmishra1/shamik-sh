@@ -14,7 +14,7 @@ object GeoIpService {
     private val json = Json { ignoreUnknownKeys = true }
     private val cache = ConcurrentHashMap<String, GeoLocation>()
     private const val CACHE_MAX_SIZE = 100
-    private const val API_URL = "http://ip-api.com/json"
+    private const val API_URL = "https://ip-api.com/json"
     private const val TIMEOUT_MS = 2000
 
     fun lookup(ip: String?): GeoLocation? {

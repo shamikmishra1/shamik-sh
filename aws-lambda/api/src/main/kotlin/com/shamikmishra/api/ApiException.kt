@@ -14,6 +14,9 @@ sealed class ApiException(
     class Unauthorized(message: String = "Unauthorized") :
         ApiException(HttpStatusCode.Unauthorized, message)
 
+    class TooManyRequests(message: String = "Too many requests") :
+        ApiException(HttpStatusCode.TooManyRequests, message)
+
     class NotFound(message: String) :
         ApiException(HttpStatusCode.NotFound, message)
 

@@ -41,8 +41,8 @@ class ApiHandler : RequestHandler<APIGatewayV2HTTPEvent, APIGatewayV2HTTPRespons
             path == "/music" || path == "/now-playing" -> music()
             path == "/reading" -> reading()
             path == "/track" && method == "POST" -> track(input)
-            path == "/stats" -> stats()
-            path == "/billing" -> billing()
+            path == "/stats" -> stats(input)
+            path == "/billing" -> billing(input)
             path == "/auth" && method == "POST" -> auth(input)
             else -> throw ApiException.NotFound("Not found: $path")
         }
@@ -68,11 +68,13 @@ class ApiHandler : RequestHandler<APIGatewayV2HTTPEvent, APIGatewayV2HTTPRespons
         } catch (e: Exception) {
             throw ApiException.BadRequest("Invalid JSON", e.message)
         }
+        event.validate()
         AnalyticsService.track(event, extractVisitorInfo(input))
         return ok(mapOf("status" to "tracked"))
     }
 
-    private fun stats(): APIGatewayV2HTTPResponse {
+    private fun stats(input: APIGatewayV2HTTPEvent): APIGatewayV2HTTPResponse {
+        requireAdmin(input)
         return try {
             ok(AnalyticsService.getStats())
         } catch (e: Exception) {
@@ -80,7 +82,8 @@ class ApiHandler : RequestHandler<APIGatewayV2HTTPEvent, APIGatewayV2HTTPRespons
         }
     }
 
-    private fun billing(): APIGatewayV2HTTPResponse {
+    private fun billing(input: APIGatewayV2HTTPEvent): APIGatewayV2HTTPResponse {
+        requireAdmin(input)
         return try {
             ok(BillingService.getBilling())
         } catch (e: Exception) {
@@ -99,11 +102,21 @@ class ApiHandler : RequestHandler<APIGatewayV2HTTPEvent, APIGatewayV2HTTPRespons
         val adminPassword = Secrets.get("ADMIN_PASSWORD")
             ?: throw ApiException.InternalError("Auth not configured", "ADMIN_PASSWORD not set")
 
-        if (request.password != adminPassword) {
+        if (!java.security.MessageDigest.isEqual(
+                request.password.toByteArray(Charsets.UTF_8),
+                adminPassword.toByteArray(Charsets.UTF_8)
+            )
+        ) {
             throw ApiException.Unauthorized("Invalid password")
         }
 
-        return ok(mapOf("authenticated" to true))
+        return ok(AuthResponse(token = AdminSession.create()))
+    }
+
+    private fun requireAdmin(input: APIGatewayV2HTTPEvent) {
+        val headers = input.headers ?: emptyMap()
+        val authorization = headers["authorization"] ?: headers["Authorization"]
+        if (!AdminSession.verify(authorization)) throw ApiException.Unauthorized()
     }
 
     private fun extractVisitorInfo(input: APIGatewayV2HTTPEvent): VisitorInfo {
@@ -184,7 +197,7 @@ class ApiHandler : RequestHandler<APIGatewayV2HTTPEvent, APIGatewayV2HTTPRespons
 
     private fun corsHeaders() = mapOf(
         "Content-Type" to "application/json",
-        "Access-Control-Allow-Origin" to "*",
+        "Access-Control-Allow-Origin" to "https://admin.shamikmishra.com",
         "Access-Control-Allow-Methods" to "GET, POST, OPTIONS",
         "Access-Control-Allow-Headers" to "Content-Type, Authorization",
         "Cache-Control" to "no-cache, no-store, must-revalidate"
@@ -193,3 +206,6 @@ class ApiHandler : RequestHandler<APIGatewayV2HTTPEvent, APIGatewayV2HTTPRespons
 
 @kotlinx.serialization.Serializable
 data class AuthRequest(val password: String)
+
+@kotlinx.serialization.Serializable
+data class AuthResponse(val token: String)

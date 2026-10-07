@@ -12,6 +12,17 @@ resource "aws_s3_bucket_public_access_block" "website" {
   restrict_public_buckets = true
 }
 
+resource "aws_s3_bucket_server_side_encryption_configuration" "website" {
+  bucket = aws_s3_bucket.website.id
+
+  rule {
+    apply_server_side_encryption_by_default {
+      kms_master_key_id = aws_kms_key.data.arn
+      sse_algorithm     = "aws:kms"
+    }
+  }
+}
+
 resource "aws_s3_bucket_versioning" "website" {
   bucket = aws_s3_bucket.website.id
   versioning_configuration { status = "Enabled" }
@@ -46,9 +57,37 @@ resource "aws_s3_bucket_versioning" "lambda_code" {
   versioning_configuration { status = "Enabled" }
 }
 
+resource "aws_s3_bucket_server_side_encryption_configuration" "lambda_code" {
+  bucket = aws_s3_bucket.lambda_code.id
+
+  rule {
+    apply_server_side_encryption_by_default {
+      kms_master_key_id = aws_kms_key.data.arn
+      sse_algorithm     = "aws:kms"
+    }
+  }
+}
+
 resource "aws_s3_bucket" "admin" {
   bucket = "${var.domain_name}-admin"
   tags   = { Name = "${var.domain_name} Admin" }
+  lifecycle { prevent_destroy = true }
+}
+
+resource "aws_s3_bucket_versioning" "admin" {
+  bucket = aws_s3_bucket.admin.id
+  versioning_configuration { status = "Enabled" }
+}
+
+resource "aws_s3_bucket_server_side_encryption_configuration" "admin" {
+  bucket = aws_s3_bucket.admin.id
+
+  rule {
+    apply_server_side_encryption_by_default {
+      kms_master_key_id = aws_kms_key.data.arn
+      sse_algorithm     = "aws:kms"
+    }
+  }
 }
 
 resource "aws_s3_bucket_public_access_block" "admin" {

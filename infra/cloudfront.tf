@@ -48,6 +48,50 @@ resource "aws_wafv2_web_acl" "website" {
     allow {}
   }
 
+  rule {
+    name     = "AWSManagedRulesCommonRuleSet"
+    priority = 1
+
+    override_action {
+      none {}
+    }
+
+    statement {
+      managed_rule_group_statement {
+        name        = "AWSManagedRulesCommonRuleSet"
+        vendor_name = "AWS"
+      }
+    }
+
+    visibility_config {
+      cloudwatch_metrics_enabled = true
+      metric_name                = "${local.name_prefix}-website-common"
+      sampled_requests_enabled   = true
+    }
+  }
+
+  rule {
+    name     = "RateLimit"
+    priority = 2
+
+    action {
+      block {}
+    }
+
+    statement {
+      rate_based_statement {
+        limit              = 300
+        aggregate_key_type = "IP"
+      }
+    }
+
+    visibility_config {
+      cloudwatch_metrics_enabled = true
+      metric_name                = "${local.name_prefix}-website-rate"
+      sampled_requests_enabled   = true
+    }
+  }
+
   visibility_config {
     cloudwatch_metrics_enabled = true
     metric_name                = "${local.name_prefix}-website-waf"
@@ -65,6 +109,50 @@ resource "aws_wafv2_web_acl" "admin" {
 
   default_action {
     allow {}
+  }
+
+  rule {
+    name     = "AWSManagedRulesCommonRuleSet"
+    priority = 1
+
+    override_action {
+      none {}
+    }
+
+    statement {
+      managed_rule_group_statement {
+        name        = "AWSManagedRulesCommonRuleSet"
+        vendor_name = "AWS"
+      }
+    }
+
+    visibility_config {
+      cloudwatch_metrics_enabled = true
+      metric_name                = "${local.name_prefix}-admin-common"
+      sampled_requests_enabled   = true
+    }
+  }
+
+  rule {
+    name     = "RateLimit"
+    priority = 2
+
+    action {
+      block {}
+    }
+
+    statement {
+      rate_based_statement {
+        limit              = 100
+        aggregate_key_type = "IP"
+      }
+    }
+
+    visibility_config {
+      cloudwatch_metrics_enabled = true
+      metric_name                = "${local.name_prefix}-admin-rate"
+      sampled_requests_enabled   = true
+    }
   }
 
   visibility_config {
@@ -123,7 +211,7 @@ resource "aws_cloudfront_distribution" "website" {
     target_origin_id       = local.s3_origin_id
     viewer_protocol_policy = "redirect-to-https"
     compress               = true
-    cache_policy_id = data.aws_cloudfront_cache_policy.caching_optimized.id
+    cache_policy_id        = data.aws_cloudfront_cache_policy.caching_optimized.id
   }
 
   custom_error_response {
@@ -171,7 +259,7 @@ resource "aws_cloudfront_distribution" "admin" {
     target_origin_id       = local.s3_admin_origin
     viewer_protocol_policy = "redirect-to-https"
     compress               = true
-    cache_policy_id = data.aws_cloudfront_cache_policy.caching_optimized.id
+    cache_policy_id        = data.aws_cloudfront_cache_policy.caching_optimized.id
   }
 
   custom_error_response {

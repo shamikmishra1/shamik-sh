@@ -69,8 +69,6 @@ object LastFmService {
                 .build()
 
             val response = client.send(request, HttpResponse.BodyHandlers.ofString())
-            logger.info { "Last.fm raw response: ${response.body()}" }
-
             val parsed = json.decodeFromString<LastFmResponse>(response.body())
 
             val track = parsed.recenttracks?.track?.firstOrNull()
